@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate, Outlet } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 
 const roleConfig = {
   student: {
@@ -38,6 +39,13 @@ const roleConfig = {
 
 export default function AppShell({ role = 'student' }) {
   const config = roleConfig[role] ?? roleConfig.student
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  function handleLogout() {
+    logout()
+    navigate('/landing')
+  }
 
   return (
     <div className="app-shell">
@@ -52,6 +60,7 @@ export default function AppShell({ role = 'student' }) {
 
         <div className="role-panel">
           <span className="role-badge">{config.name}</span>
+          {user && <p className="user-email">{user.email}</p>}
         </div>
 
         <nav className="nav-list" aria-label="Sidebar navigation">
@@ -67,36 +76,16 @@ export default function AppShell({ role = 'student' }) {
             </NavLink>
           ))}
         </nav>
+
+        {user && (
+          <button className="logout-button" onClick={handleLogout}>
+            Log out
+          </button>
+        )}
       </aside>
 
       <main className="main-panel">
-        <header className="page-header">
-          <div>
-            <p className="eyebrow">Project workspace</p>
-            <h2>{config.name} dashboard</h2>
-          </div>
-          <button type="button" className="primary-button">
-            Create {config.name === 'Student' ? 'Application' : config.name === 'Sponsor' ? 'Opportunity' : 'Review'}
-          </button>
-        </header>
-
-        <section className="content-grid">
-          <div className="card">
-            <h3>Current status</h3>
-            <p>Application workflow and role-based navigation are ready for the next feature layer.</p>
-          </div>
-          <div className="card">
-            <h3>Design system</h3>
-            <p>Warm neutrals, dark brown surfaces, and careful spacing are aligned to the project brief.</p>
-          </div>
-          <div className="card wide">
-            <h3>Implementation focus</h3>
-            <p>
-              Phase 1 establishes the shell, shared UI tokens, and route structure so the student,
-              sponsor, and admin interfaces can be developed incrementally without architectural drift.
-            </p>
-          </div>
-        </section>
+        <Outlet />
       </main>
     </div>
   )
