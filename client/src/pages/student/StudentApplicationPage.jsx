@@ -7,7 +7,7 @@ export default function StudentApplicationPage() {
 
   // Mock sponsorship data
   const sponsorshipData = {
-    id: 'opp-042',
+    id: appId || 'opp-042',
     title: 'Full Tuition + Living Expenses',
     sponsor: 'Merit Foundation',
     amount: 80000,
