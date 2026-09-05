@@ -76,7 +76,7 @@ export default function ApplicationFormWizard({ sponsorshipId, onSubmit, initial
   const handleSubmit = (e) => {
     e.preventDefault()
     if (canProceedToNext()) {
-      onSubmit(formData)
+      onSubmit({ ...formData, sponsorshipId })
     }
   }
 
