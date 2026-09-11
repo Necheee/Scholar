@@ -1,5 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import ApplicationFormWizard from '../../components/ApplicationFormWizard'
+import { analyzeApplication } from '../../services/mockFraudEngine'
+import { saveApplication } from '../../services/mockDatabase'
 
 export default function StudentApplicationPage() {
   const { appId } = useParams()
@@ -16,12 +18,28 @@ export default function StudentApplicationPage() {
   }
 
   const handleSubmit = async (formData) => {
-    // In Phase 6, this will send data to backend API
-    // For now, mock the submission
-    console.log('Application submitted:', formData)
+    // Run fraud analysis
+    const fraudResult = analyzeApplication(formData)
+    
+    // Save to mock database
+    saveApplication({
+      ...formData,
+      studentName: 'Test Student', // hardcoded for mock
+      institution: formData.school,
+      programme: formData.major,
+      level: formData.year,
+      session: '2025/2026',
+      sponsorshipTitle: sponsorshipData.title,
+      reasonForSponsorship: formData.motivation,
+      submittedInfo: formData.goals,
+      status: fraudResult.isFlagged ? 'flagged' : 'approved',
+      fraudAnalysis: fraudResult,
+    })
+    
+    console.log('Application submitted:', formData, 'Fraud Result:', fraudResult)
     
     // Show success message and navigate
-    alert('Application submitted successfully!')
+    alert(fraudResult.isFlagged ? 'Application submitted but flagged for admin review.' : 'Application submitted successfully!')
     navigate('/student')
   }
 
