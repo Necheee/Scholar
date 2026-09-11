@@ -62,7 +62,7 @@ export default function AdminDashboard() {
                 <h4>Application Flagged: High Risk</h4>
                 <p className="card-meta">John Doe - Tech Innovators Scholarship</p>
               </div>
-              <span className="badge badge-warning">Needs Review</span>
+              <span className="badge" style={{ background: 'var(--color-danger)', color: 'white' }}>Needs Review</span>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)', margin: '8px 0 16px' }}>
               10 minutes ago
@@ -75,7 +75,7 @@ export default function AdminDashboard() {
                 <h4>Student Responded to Request</h4>
                 <p className="card-meta">Alice Smith uploaded new transcript</p>
               </div>
-              <span className="badge badge-info">Update</span>
+              <span className="badge" style={{ background: 'var(--color-accent)', color: 'white' }}>Update</span>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)', margin: '8px 0 16px' }}>
               2 hours ago
@@ -88,7 +88,7 @@ export default function AdminDashboard() {
                 <h4>Sponsor Approved Application</h4>
                 <p className="card-meta">Tech Corp approved Jane Doe</p>
               </div>
-              <span className="badge badge-success">Approved</span>
+              <span className="badge" style={{ background: 'var(--color-success)', color: 'white' }}>Approved</span>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)', margin: '8px 0 16px' }}>
               5 hours ago
@@ -137,3 +137,4 @@ export default function AdminDashboard() {
     </div>
   )
 }
+
