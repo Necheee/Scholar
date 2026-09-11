@@ -16,6 +16,12 @@ import StudentApplicationPage from './pages/student/StudentApplicationPage.jsx'
 import StudentApplicationHistory from './pages/student/StudentApplicationHistory.jsx'
 import StudentProfile from './pages/student/StudentProfile.jsx'
 import StudentNotifications from './pages/student/StudentNotifications.jsx'
+import SponsorDashboard from './pages/sponsor/SponsorDashboard.jsx'
+import SponsorOpportunities from './pages/sponsor/SponsorOpportunities.jsx'
+import SponsorApplications from './pages/sponsor/SponsorApplications.jsx'
+import SponsorStudentsDirectory from './pages/sponsor/SponsorStudentsDirectory.jsx'
+import SponsorNotifications from './pages/sponsor/SponsorNotifications.jsx'
+import SponsorProfile from './pages/sponsor/SponsorProfile.jsx'
 
 export function App() {
   return (
@@ -43,7 +49,15 @@ export function App() {
             <Route path="*" element={<Navigate to="/student" replace />} />
           </Route>
           
-          <Route path="/sponsor/*" element={<ProtectedRoute requiredRole="sponsor"><AppShell role="sponsor" /></ProtectedRoute>} />
+          <Route path="/sponsor" element={<ProtectedRoute requiredRole="sponsor"><AppShell role="sponsor" /></ProtectedRoute>}>
+            <Route index element={<SponsorDashboard />} />
+            <Route path="opportunities" element={<SponsorOpportunities />} />
+            <Route path="applications" element={<SponsorApplications />} />
+            <Route path="students" element={<SponsorStudentsDirectory />} />
+            <Route path="notifications" element={<SponsorNotifications />} />
+            <Route path="profile" element={<SponsorProfile />} />
+            <Route path="*" element={<Navigate to="/sponsor" replace />} />
+          </Route>
           <Route path="/admin/*" element={<ProtectedRoute requiredRole="admin"><AppShell role="admin" /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
