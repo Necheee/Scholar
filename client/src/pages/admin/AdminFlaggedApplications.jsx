@@ -163,10 +163,7 @@ export default function AdminFlaggedApplications() {
                   <div key={rule.id} style={{ padding: '16px', background: 'var(--color-surface)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
                     <div className="card-header" style={{ marginBottom: '8px' }}>
                       <h4 style={{ margin: 0, fontSize: '0.95rem' }}>{rule.name}</h4>
-                      <span className={`badge ${
-                        rule.severity === 'High' ? 'badge-warning' :
-                        'badge-info'
-                      }`} style={{ background: rule.severity === 'High' ? 'var(--color-danger)' : 'var(--color-warning)', color: 'white' }}>
+                      <span className="badge" style={{ background: rule.severity === 'High' ? 'var(--color-danger)' : 'var(--color-warning)', color: 'white' }}>
                         {rule.severity}
                       </span>
                     </div>
@@ -267,3 +264,4 @@ export default function AdminFlaggedApplications() {
     </div>
   )
 }
+
