@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { getApplications } from '../../services/mockDatabase'
 
 const mockFlaggedApplications = [
   {
-    id: 1,
+    id: 'mock-1',
     studentName: 'John Doe',
     institution: 'University of Lagos',
     programme: 'Computer Science',
@@ -36,7 +37,7 @@ const mockFlaggedApplications = [
     ]
   },
   {
-    id: 2,
+    id: 'mock-2',
     studentName: 'Jane Smith',
     institution: 'Obafemi Awolowo University',
     programme: 'Electrical Engineering',
@@ -59,8 +60,31 @@ const mockFlaggedApplications = [
   }
 ];
 
+const getInitialFlaggedApps = () => {
+  const allApps = getApplications();
+  const dynamicFlagged = allApps
+    .filter(app => app.status === 'flagged')
+    .map(app => ({
+      id: app.id,
+      studentName: app.studentName,
+      institution: app.institution,
+      programme: app.programme,
+      level: app.level,
+      session: app.session,
+      sponsorshipTitle: app.sponsorshipTitle,
+      reasonForSponsorship: app.reasonForSponsorship,
+      submittedInfo: app.submittedInfo,
+      riskLevel: app.fraudAnalysis.riskLevel,
+      rulesTriggered: app.fraudAnalysis.rulesTriggered,
+      dateFlagged: new Date(app.fraudAnalysis.dateFlagged).toISOString().split('T')[0],
+      rules: app.fraudAnalysis.rules
+    }));
+  return [...dynamicFlagged, ...mockFlaggedApplications];
+};
+
 export default function AdminFlaggedApplications() {
   const [selectedApp, setSelectedApp] = useState(null)
+  const [flaggedApps] = useState(getInitialFlaggedApps)
 
   if (selectedApp) {
     return (
@@ -233,8 +257,13 @@ export default function AdminFlaggedApplications() {
 
       <section className="active-section">
         <div className="content-grid">
-          {mockFlaggedApplications.map((app) => (
-            <div key={app.id} className="card wide" style={{ cursor: 'pointer', transition: 'border 0.2s' }} onClick={() => setSelectedApp(app)}>
+          {flaggedApps.length === 0 ? (
+            <div className="card wide" style={{ textAlign: 'center', padding: '40px' }}>
+              <h3 style={{ margin: 0, color: 'var(--color-ink-soft)' }}>No flagged applications currently.</h3>
+            </div>
+          ) : (
+            flaggedApps.map((app) => (
+              <div key={app.id} className="card wide" style={{ cursor: 'pointer', transition: 'border 0.2s' }} onClick={() => setSelectedApp(app)}>
               <div className="card-header">
                 <div>
                   <h4>{app.studentName}</h4>
@@ -258,7 +287,8 @@ export default function AdminFlaggedApplications() {
                 </div>
               </div>
             </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
     </div>
