@@ -6,50 +6,56 @@ For next developer/AI agent stepping in.
 
 ## Status Summary
 
-**Phase:** 1 (Foundation) — code ready, build not verified  
-**Blocker:** npm missing — cannot verify build  
-**Next:** Fix npm, then proceed to Phase 2 (Authentication)
+**Phase:** 6 (Integration & Workflows) — Next up  
+**Blocker:** None  
+**Next:** Plan the backend architecture and begin connecting the frontend UI mocks to real API endpoints.
 
 ---
 
 ## 60-Second Setup
 
 1. **Check environment:**
+
    ```bash
    node --version && npm --version
    ```
-   
-   If either fails → [Install Node.js LTS](./KNOWN_ISSUES.md#issue-001-npm-not-available-in-environment)
+
+   _Note: In this Windows PowerShell environment, you MUST use `npm.cmd` instead of `npm` to bypass execution policies._
 
 2. **Build:**
+
    ```bash
    cd client
-   npm install
-   npm run build
+   npm.cmd install
+   npm.cmd run build
    ```
-   
+
    Should complete with no errors.
 
 3. **Test:**
+
    ```bash
-   npm run dev
+   npm.cmd run dev
    ```
-   
-   Open browser → see dark brown sidebar with role-specific navigation
+
+   Open browser → see the application. Role state is persisted in localStorage.
 
 ---
 
 ## What Exists
 
 ✅ React + Vite configured  
-✅ React Router with 3 role paths  
-✅ Tailwind CSS v4 + design tokens (warm brown palette)  
+✅ React Router with 3 role paths flattened correctly  
+✅ Custom CSS design tokens (warm brown/beige palette) strictly used for dashboards  
 ✅ AppShell component (all 3 roles)  
-✅ Folder structure ready for features  
+✅ **Student UI Mocked:** Dashboard, 5-step Application Wizard, History  
+✅ **Sponsor UI Mocked:** Dashboard, Opportunities, Application Review  
+✅ **Admin UI Mocked:** Dashboard, Flagged Applications Fraud Review  
+✅ Build completely verified via `npm.cmd`
 
-❌ Zero features shipped  
-❌ No backend  
-❌ No authentication  
+❌ No backend / database  
+❌ Real authentication is not implemented (currently just mocked via localStorage)  
+❌ Real-time backend integration
 
 ---
 
@@ -69,57 +75,32 @@ For next developer/AI agent stepping in.
 
 ---
 
-## Current Blocker
+## Current Blockers
 
-**npm is not available** (see [ISS-001](./KNOWN_ISSUES.md#issue-001-npm-not-available-in-environment))
-
-This is **not** an application problem. The code is correct; the environment is missing Node.js.
-
-**Resolution:**
-1. Install Node.js LTS from https://nodejs.org
-2. Verify: `node -v && npm -v`
-3. Run: `cd client && npm install && npm run build`
-4. If successful, update [PROJECT_STATUS.md](./PROJECT_STATUS.md) with build results
-5. Proceed to Phase 2
-
----
-
-## Phase 1 Verification
-
-When you fix the blocker and run `npm run build`:
-
-**Expected:**
-- Build completes with no errors
-- App shell visible with dark brown sidebar
-- Can navigate to `/student`, `/sponsor`, `/admin`
-- Different sidebar nav per role
-- Warm beige panels and white cards
-
-**If you see errors:**
-- Check error message
-- Review [KNOWN_ISSUES.md](./KNOWN_ISSUES.md)
-- Add issue if not listed
+**None.**
+The previous blocker regarding `npm` not being available has been resolved by using `npm.cmd` in PowerShell.
 
 ---
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `client/src/main.jsx` | Router + entry point |
-| `client/src/app/AppShell.jsx` | All 3 role interfaces |
-| `client/src/styles/design-tokens.css` | Design system (colors, typography) |
-| `client/vite.config.js` | Build config |
-| `client/package.json` | Dependencies |
+| File                                  | Purpose                                                                                |
+| ------------------------------------- | -------------------------------------------------------------------------------------- |
+| `client/src/main.jsx`                 | Router + entry point                                                                   |
+| `client/src/app/AppShell.jsx`         | All 3 role interfaces                                                                  |
+| `client/src/styles/design-tokens.css` | Design system (colors, typography). **MANDATORY** for dashboard layouts (see DEC-026). |
+| `client/vite.config.js`               | Build config                                                                           |
+| `client/package.json`                 | Dependencies                                                                           |
 
 ---
 
-## Next Phase (Phase 2)
+## Next Phase (Phase 6: Integration & Workflows)
 
-Once Phase 1 is verified:
-- Build landing page (unauthenticated entry)
-- Create login, registration, password reset forms
-- Implement role selection during signup
+Now that the UI mocks for Phases 1-5 are complete and build verified, it's time to connect the frontend to a real backend.
+
+1. **Define Backend Technology & Architecture:** Decide on the database and API layer.
+2. **Implement Real Auth:** Swap the mock `localStorage` auth with a real JWT/session implementation.
+3. **Connect Forms:** Connect the Student application wizard, Sponsor opportunity forms, and Admin review actions to real API endpoints.
 
 See [ROADMAP.md](./ROADMAP.md) for full scope.
 

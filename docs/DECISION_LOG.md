@@ -252,3 +252,12 @@ Major product, architecture, and technical decisions.
 
 **Status:** ✅ Accepted — Implemented
 
+---
+
+## DEC-026 — Dashboard Layouts Use Custom CSS Architecture
+
+**Decision:** The primary dashboard layouts (Student, Sponsor, and Admin) and their specific UI components (cards, headers, timeline items) DO NOT use Tailwind classes directly in their JSX. They strictly use the custom CSS architecture defined in `client/src/styles/design-tokens.css` (e.g., `.student-dashboard`, `.card`, `.primary-button`).
+
+**Reason:** Maintains strict consistency across all three user roles. Protects the core visual language (warm beige/brown) from accidental deviation or overriding via utility classes, ensuring a cohesive and elegant experience. Tailwind is reserved for generic structure or edge-case overrides if absolutely necessary.
+
+**Status:** ✅ Accepted — Implemented across Phases 3, 4, and 5
