@@ -6,43 +6,47 @@
 
 ## Overview
 
-| Phase | Scope | Effort | Status |
-|-------|-------|--------|--------|
-| 1 | Foundation (React, Router, Design) | Complete | 🟡 Build blocked |
-| 2 | Authentication (Login, Signup, etc.) | 5-7d | 🔴 Not started |
-| 3 | Student Interface | 7-10d | 🔴 Not started |
-| 4 | Sponsor Interface | 7-10d | 🔴 Not started |
-| 5 | Admin Interface | 5-7d | 🔴 Not started |
-| 6 | Backend Integration | 7-14d | 🔴 Not started |
-| 7 | Testing & Refinement | 3-5d | 🔴 Not started |
+| Phase | Scope                                | Effort   | Status                 |
+| ----- | ------------------------------------ | -------- | ---------------------- |
+| 1     | Foundation (React, Router, Design)   | Complete | ✅ Complete            |
+| 2     | Authentication (Login, Signup, etc.) | 5-7d     | ✅ Complete (UI Mocks) |
+| 3     | Student Interface                    | 7-10d    | ✅ Complete (UI Mocks) |
+| 4     | Sponsor Interface                    | 7-10d    | ✅ Complete (UI Mocks) |
+| 5     | Admin Interface                      | 5-7d     | ✅ Complete (UI Mocks) |
+| 6     | Backend Integration                  | 7-14d    | 🔴 Not started (Next)  |
+| 7     | Testing & Refinement                 | 3-5d     | 🔴 Not started         |
 
 **Total Estimate:** 3-4 months full-time
 
 ---
 
-## Phase 1: Foundation ✅ (Blocked)
+## Phase 1: Foundation ✅ Complete
 
 **Goal:** Set up tooling, routing, design system
 
 **What's Done:**
+
 - React + Vite configured
 - React Router with 3 role paths
 - Tailwind v4 + design tokens
 - AppShell component
 - Folder structure
+- Build verified via `npm.cmd`
 
 **What's Pending:**
-- Build verification (blocked by [ISS-001](./KNOWN_ISSUES.md#issue-001-npm-not-available-in-environment))
+
+- None
 
 **Dependency:** None (project start)
 
 ---
 
-## Phase 2: Authentication (Next)
+## Phase 2: Authentication ✅ Complete (UI Mocks)
 
 **Goal:** Login, signup, password reset for all 3 roles
 
 **Components to Build:**
+
 - Landing page
 - Login form
 - Role selection during signup
@@ -52,6 +56,7 @@
 - Logout
 
 **Features:**
+
 - Password strength validation
 - Email validation
 - Duplicate account detection
@@ -65,11 +70,12 @@
 
 ---
 
-## Phase 3: Student Interface
+## Phase 3: Student Interface ✅ Complete (UI Mocks)
 
 **Goal:** Core student features (browse, apply, track applications)
 
 **Components:**
+
 - Dashboard (current application status, notifications)
 - Sponsorships (browse, filter, details)
 - Multi-step application form (5 steps: Academic Info → Reason → ID Doc → Supporting Docs → Review & Submit)
@@ -79,6 +85,7 @@
 - Seeking Sponsorship toggle
 
 **Features:**
+
 - Draft saving at each form step
 - Application progress tracking
 - Document upload/download
@@ -91,11 +98,12 @@
 
 ---
 
-## Phase 4: Sponsor Interface
+## Phase 4: Sponsor Interface ✅ Complete (UI Mocks)
 
 **Goal:** Sponsor features (manage opportunities, review applications)
 
 **Components:**
+
 - Dashboard (my sponsorships, application counts)
 - My Sponsorships (create, edit, view)
 - Applications (to review, filter, sort)
@@ -106,6 +114,7 @@
 - Profile
 
 **Features:**
+
 - Create/edit sponsorship opportunities
 - Set deadline and acceptance criteria
 - Lock sponsorship after first application
@@ -119,11 +128,12 @@
 
 ---
 
-## Phase 5: Admin Interface
+## Phase 5: Admin Interface ✅ Complete (UI Mocks)
 
 **Goal:** Admin oversight and fraud detection
 
 **Components:**
+
 - Dashboard (flagged applications, pending requests, recent activity)
 - Flagged Applications (review fraud detection results)
 - Information Requests (review responses, manage workflow)
@@ -132,6 +142,7 @@
 - Profile
 
 **Features:**
+
 - Display fraud detection results (rules triggered, severity)
 - Approve/reject/request information on flagged applications
 - Manage information requests
@@ -144,11 +155,12 @@
 
 ---
 
-## Phase 6: Integration & Workflows
+## Phase 6: Integration & Workflows (Next)
 
 **Goal:** Connect frontend to backend
 
 **Work:**
+
 - Define backend API endpoints
 - Integrate authentication (JWT/sessions)
 - Connect all forms to API
@@ -168,6 +180,7 @@
 **Goal:** Verify and polish
 
 **Work:**
+
 - Responsive design across breakpoints
 - Form validation edge cases
 - Error state handling
