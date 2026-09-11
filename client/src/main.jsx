@@ -22,6 +22,12 @@ import SponsorApplications from './pages/sponsor/SponsorApplications.jsx'
 import SponsorStudentsDirectory from './pages/sponsor/SponsorStudentsDirectory.jsx'
 import SponsorNotifications from './pages/sponsor/SponsorNotifications.jsx'
 import SponsorProfile from './pages/sponsor/SponsorProfile.jsx'
+import AdminDashboard from './pages/admin/AdminDashboard.jsx'
+import AdminFlaggedApplications from './pages/admin/AdminFlaggedApplications.jsx'
+import AdminInformationRequests from './pages/admin/AdminInformationRequests.jsx'
+import AdminActivity from './pages/admin/AdminActivity.jsx'
+import AdminNotifications from './pages/admin/AdminNotifications.jsx'
+import AdminProfile from './pages/admin/AdminProfile.jsx'
 
 export function App() {
   return (
@@ -59,6 +65,15 @@ export function App() {
             <Route path="*" element={<Navigate to="/sponsor" replace />} />
           </Route>
           <Route path="/admin/*" element={<ProtectedRoute requiredRole="admin"><AppShell role="admin" /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AppShell role="admin" /></ProtectedRoute>}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="flagged" element={<AdminFlaggedApplications />} />
+            <Route path="requests" element={<AdminInformationRequests />} />
+            <Route path="activity" element={<AdminActivity />} />
+            <Route path="notifications" element={<AdminNotifications />} />
+            <Route path="profile" element={<AdminProfile />} />
+            <Route path="*" element={<Navigate to="/admin" replace />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </AuthProvider>
