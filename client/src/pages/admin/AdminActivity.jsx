@@ -20,3 +20,4 @@ export default function AdminActivity() {
     </div>
   )
 }
+
