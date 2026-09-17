@@ -224,7 +224,7 @@ export default function ApplicationFormWizard({ sponsorshipId, onSubmit, initial
 
             <div className="field-group">
               <label htmlFor="idDocument">Upload ID Document</label>
-              <div className="file-upload-area">
+              <label className="file-upload-area" htmlFor="idDocument" style={{ display: 'block', cursor: 'pointer' }}>
                 <input
                   id="idDocument"
                   type="file"
@@ -232,11 +232,12 @@ export default function ApplicationFormWizard({ sponsorshipId, onSubmit, initial
                   onChange={(e) => handleFileChange('idDocument', e.target.files?.[0])}
                   required
                 />
-                <p>PDF, JPG, or PNG (Max 5MB)</p>
+                <p>Click to browse or drag & drop</p>
+                <p style={{ fontSize: '0.8rem', marginTop: '4px' }}>PDF, JPG, or PNG (Max 5MB)</p>
                 {formData.idDocument && (
                   <p className="file-selected">✓ {formData.idDocument.name}</p>
                 )}
-              </div>
+              </label>
             </div>
           </fieldset>
         )}
@@ -249,7 +250,7 @@ export default function ApplicationFormWizard({ sponsorshipId, onSubmit, initial
 
             <div className="field-group">
               <label htmlFor="supportingDocs">Upload Supporting Documents</label>
-              <div className="file-upload-area">
+              <label className="file-upload-area" htmlFor="supportingDocs" style={{ display: 'block', cursor: 'pointer' }}>
                 <input
                   id="supportingDocs"
                   type="file"
@@ -259,8 +260,9 @@ export default function ApplicationFormWizard({ sponsorshipId, onSubmit, initial
                     Array.from(e.target.files || []).forEach(file => handleAddDocument(file))
                   }}
                 />
-                <p>PDF, Word, Excel, or Images (Max 5MB each)</p>
-              </div>
+                <p>Click to browse or drag & drop</p>
+                <p style={{ fontSize: '0.8rem', marginTop: '4px' }}>PDF, Word, Excel, or Images (Max 5MB each)</p>
+              </label>
             </div>
 
             {formData.documents.length > 0 && (
