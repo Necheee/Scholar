@@ -38,12 +38,19 @@ Overall system design and frontend implementation structure.
 - Real fraud detection system
 - File storage system
 - Notification service
+**Planned Backend Architecture:**
+- **Backend API:** Node.js + Express.js REST API
+- **Database:** MongoDB (Users, Profiles, Sponsorships, Applications, Notifications, Fraud Flags, Document Metadata)
+- **Authentication:** Custom JWT-based authentication (bcrypt password hashing, role-based authorization for Student/Sponsor/Admin)
+- **Fraud Detection Engine:** Custom rule-based system running in the backend (e.g., detecting duplicate applications, inconsistencies). Flags trigger Admin review, not automatic rejection.
+- **File Storage:** Cloudinary (Document metadata stored in MongoDB)
 
 **Current State:**
 - Frontend shell built
 - Routes configured
 - Design system established
 - Mock data placeholders ready for API integration
+- Backend setup about to begin (Phase 6)
 
 ---
 
@@ -264,6 +271,8 @@ Content-Specific:
 ### Data Flow (Planned)
 
 **Student Application Workflow:**
+**Student Application Workflow & Lifecycle:**
+*Business Rule:* A student may have only ONE active sponsorship application at a time. An active application (Pending, Under Review, Accepted) prevents new applications. If rejected or draft cancelled, the student can apply again.
 
 ```
 1. Student visits /student/sponsorships

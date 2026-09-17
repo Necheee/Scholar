@@ -261,3 +261,53 @@ Major product, architecture, and technical decisions.
 **Reason:** Maintains strict consistency across all three user roles. Protects the core visual language (warm beige/brown) from accidental deviation or overriding via utility classes, ensuring a cohesive and elegant experience. Tailwind is reserved for generic structure or edge-case overrides if absolutely necessary.
 
 **Status:** ✅ Accepted — Implemented across Phases 3, 4, and 5
+
+---
+
+## DEC-027 — Backend Language & Framework
+
+**Decision:** Node.js + Express.js for the REST API.
+
+**Reason:** JavaScript ecosystem compatibility, straightforward REST API creation, manageable for a BSc final-year project without unnecessary enterprise-level complexity.
+
+**Status:** ✅ Accepted — Pending Implementation
+
+---
+
+## DEC-028 — Database
+
+**Decision:** MongoDB for storing users, profiles, sponsorships, applications, notifications, fraud results, and document metadata. Student academic info is stored directly on the profile.
+
+**Reason:** Flexible schema suitable for the varying data requirements of student profiles and applications.
+
+**Status:** ✅ Accepted — Pending Implementation
+
+---
+
+## DEC-029 — Authentication
+
+**Decision:** Custom JWT-based authentication with bcrypt password hashing. Admin accounts are manually created. No third-party auth services (like Firebase/Auth0).
+
+**Reason:** Meets project requirements for custom authentication and role-based authorization (Student, Sponsor, Admin).
+
+**Status:** ✅ Accepted — Pending Implementation
+
+---
+
+## DEC-030 — File Storage
+
+**Decision:** Cloudinary for storing student documents (transcripts, IDs). MongoDB will store document references/metadata.
+
+**Reason:** Prevents overloading MongoDB or the local server filesystem. Secure handling of sensitive files.
+
+**Status:** ✅ Accepted — Pending Implementation
+
+---
+
+## DEC-031 — Fraud Detection Engine
+
+**Decision:** Custom rule-based fraud detection engine built into the backend (e.g., duplicate applications, inconsistent information).
+
+**Reason:** Meets project requirements without relying on expensive or black-box third-party APIs. Flags require manual Admin review, emphasizing human-in-the-loop processing.
+
+**Status:** ✅ Accepted — Pending Implementation
