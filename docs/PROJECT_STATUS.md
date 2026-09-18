@@ -36,14 +36,17 @@
 - ✅ Integration with fraud detection mock logic
 - ✅ Backend Foundation (Node.js/Express, MongoDB)
 - ✅ Database Models
-- ⏳ Custom JWT Authentication
-- ⏳ Sponsorship & Applications REST API
-- ⏳ File Storage (Cloudinary)
-- ⏳ Custom Rule-Based Fraud Detection
-- ⏳ Notifications & Frontend Integration
+- ✅ Custom JWT Authentication
+- ✅ Sponsorship & Applications REST API
+- ✅ File Storage (Cloudinary)
+- ✅ Custom Rule-Based Fraud Detection
+- ⏳ Notifications & Frontend Integration (Proxy & Auth Configured, Mock Removal Pending)
 
 ### What Works Now
 
+- **Frontend Only:** React mock UI
+- **Backend Only:** Node.js/MongoDB REST API fully built
+- **Integration Status:** Vite proxy configured. Ready for the massive task of replacing all `mockData.js` imports with Axios API calls.
 - Role-based routing (`/student`, `/sponsor`, `/admin`) is fully implemented with flat nested routes inside the AppShell.
 - Student application workflow (multi-step form, draft saving, application history).
 - Sponsor opportunity creation and application review.
