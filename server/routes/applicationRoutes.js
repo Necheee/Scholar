@@ -2,6 +2,7 @@ import express from 'express';
 import {
   submitApplication,
   getMyApplications,
+  getSponsorApplications,
   getFlaggedApplications,
   getApplicationById,
   adminReviewApplication,
@@ -16,6 +17,9 @@ router.route('/')
 
 router.route('/my-applications')
   .get(protect, authorize('Student'), getMyApplications);
+
+router.route('/sponsor-applications')
+  .get(protect, authorize('Sponsor'), getSponsorApplications);
 
 router.route('/flagged')
   .get(protect, authorize('Admin'), getFlaggedApplications);

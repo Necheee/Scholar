@@ -72,6 +72,33 @@ export const getMyApplications = async (req, res, next) => {
   }
 };
 
+// @desc    Get applications for a sponsor's sponsorships
+// @route   GET /api/applications/sponsor-applications
+// @access  Private/Sponsor
+export const getSponsorApplications = async (req, res, next) => {
+  try {
+    // 1. Find all sponsorships owned by this sponsor
+    const sponsorships = await Sponsorship.find({ sponsor: req.user._id });
+    const sponsorshipIds = sponsorships.map(s => s._id);
+
+    // 2. Find all applications for those sponsorships that are ready for sponsor review
+    const applications = await Application.find({
+      sponsorship: { $in: sponsorshipIds },
+      status: { $in: ['Under Sponsor review', 'Approved', 'Rejected'] }
+    })
+      .populate('student', 'name email')
+      .populate('sponsorship', 'title');
+
+    // We also need the student's profile for institutional info, but we can do a secondary lookup
+    // or just let the frontend fetch student profile details when viewing an individual app,
+    // or we can attach it here. For simplicity, we just return the apps.
+
+    res.json(applications);
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Get application by ID
 // @route   GET /api/applications/:id
 // @access  Private

@@ -1,282 +1,136 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../../services/api'
+import { useAuth } from '../../hooks/useAuth'
 
 export default function SponsorDashboard() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  
+  const [stats, setStats] = useState({
+    activeSponsorships: 0,
+    applicationsToReview: 0,
+    awardedStudents: 0
+  })
+  
+  const [pendingReviews, setPendingReviews] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const stats = [
-    { label: 'Active Sponsorships', value: 3, color: 'accent' },
-    { label: 'Applications to Review', value: 5, color: 'warning' },
-    { label: 'Awarded Students', value: 12, color: 'success' },
-  ]
+  useEffect(() => {
+    async function fetchDashboardData() {
+      try {
+        setIsLoading(true)
+        const [sponsorshipsRes, applicationsRes] = await Promise.all([
+          api.get('/sponsorships'),
+          api.get('/applications/sponsor-applications')
+        ])
 
-  // Applications that passed fraud detection and are waiting for sponsor decision
-  const pendingReviews = [
-    {
-      id: 'app-101',
-      studentName: 'Chiamaka Okafor',
-      institution: 'University of Lagos',
-      programme: 'Computer Engineering',
-      sponsorshipTitle: 'STEM Excellence Scholarship',
-      dateCleared: '2026-09-03',
-      gpa: '3.92',
-    },
-    {
-      id: 'app-102',
-      studentName: 'David Adeleke',
-      institution: 'Covenant University',
-      programme: 'Electrical Electronics',
-      sponsorshipTitle: 'Future Tech Leaders Grant',
-      dateCleared: '2026-09-02',
-      gpa: '3.85',
-    },
-    {
-      id: 'app-103',
-      studentName: 'Fatima Bello',
-      institution: 'Ahmadu Bello University',
-      programme: 'Software Engineering',
-      sponsorshipTitle: 'Women in Technology Award',
-      dateCleared: '2026-09-01',
-      gpa: '3.78',
-    },
-  ]
+        const sponsorships = sponsorshipsRes.data
+        const applications = applicationsRes.data
 
-  // Current sponsorships managed by this sponsor
-  const activeSponsorships = [
-    {
-      id: 'sp-01',
-      title: 'STEM Excellence Scholarship',
-      awardAmount: '$5,000 / session',
-      applicantsCount: 14,
-      deadline: '2026-10-15',
-      status: 'Active (Locked)',
-      lockedReason: 'Locked: Received 14 applications',
-    },
-    {
-      id: 'sp-02',
-      title: 'Future Tech Leaders Grant',
-      awardAmount: '$3,500 / session',
-      applicantsCount: 8,
-      deadline: '2026-10-30',
-      status: 'Active (Locked)',
-      lockedReason: 'Locked: Received 8 applications',
-    },
-    {
-      id: 'sp-03',
-      title: 'Undergraduate Innovation Fund',
-      awardAmount: '$2,000 one-time',
-      applicantsCount: 0,
-      deadline: '2026-11-15',
-      status: 'Active (Editable)',
-      lockedReason: 'Editable: No applications submitted yet',
-    },
-  ]
+        const activeSponsorships = sponsorships.filter(s => s.status === 'Active').length
+        const appsToReview = applications.filter(a => a.status === 'Under Sponsor review')
+        const awardedApps = applications.filter(a => a.status === 'Approved').length
+
+        setStats({
+          activeSponsorships,
+          applicationsToReview: appsToReview.length,
+          awardedStudents: awardedApps
+        })
+
+        // Get top 3 most recent apps for review
+        setPendingReviews(appsToReview.slice(0, 3))
+      } catch (error) {
+        console.error('Failed to load dashboard data:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchDashboardData()
+  }, [])
+
+  if (isLoading) return <div>Loading dashboard...</div>
 
   return (
-    <div className="student-dashboard">
-      {/* Welcome & Organization Banner */}
-      <section className="dashboard-welcome">
-        <div className="section-header">
-          <div>
-            <h3>Sponsor Management Portal</h3>
-            <p className="section-meta">
-              Manage your sponsorship funds, review verified student applications, and discover talent.
-            </p>
+    <div className="dashboard">
+      <div className="section-header" style={{ marginBottom: '32px' }}>
+        <div>
+          <h2>Welcome, {user?.name || 'Sponsor'}</h2>
+          <p className="section-meta">Overview of your funding programs and applicant pipeline.</p>
+        </div>
+        <button 
+          className="primary-button" 
+          onClick={() => navigate('/sponsor/opportunities')}
+        >
+          Manage Opportunities
+        </button>
+      </div>
+
+      <div className="stats-grid">
+        <div className="stat-card" style={{ borderTop: '4px solid #3b82f6' }}>
+          <div className="stat-value">{stats.activeSponsorships}</div>
+          <div className="stat-label">Active Sponsorships</div>
+        </div>
+        <div className="stat-card" style={{ borderTop: '4px solid #eab308' }}>
+          <div className="stat-value">{stats.applicationsToReview}</div>
+          <div className="stat-label">Applications to Review</div>
+        </div>
+        <div className="stat-card" style={{ borderTop: '4px solid #22c55e' }}>
+          <div className="stat-value">{stats.awardedStudents}</div>
+          <div className="stat-label">Awarded Students</div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: '40px' }}>
+        <div className="section-header" style={{ marginBottom: '16px' }}>
+          <h3 style={{ fontSize: '1.25rem', margin: 0 }}>Pending Applications (Needs Review)</h3>
+          <button className="action-button" onClick={() => navigate('/sponsor/applications')}>
+            View All →
+          </button>
+        </div>
+
+        {pendingReviews.length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
+            <p style={{ color: 'var(--color-ink-soft)' }}>No applications currently waiting for your review.</p>
           </div>
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => navigate('/sponsor/opportunities')}
-          >
-            + Create Sponsorship
-          </button>
-        </div>
-      </section>
-
-      {/* Stats Overview */}
-      <section className="stats-grid">
-        {stats.map(({ label, value, color }) => (
-          <div key={label} className={`stat-card stat-${color}`}>
-            <p className="stat-label">{label}</p>
-            <p className="stat-value">{value}</p>
+        ) : (
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Applicant</th>
+                  <th>Opportunity</th>
+                  <th>Submitted On</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingReviews.map((app) => (
+                  <tr key={app._id}>
+                    <td>
+                      <strong>{app.student.name}</strong>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>
+                        {app.academicInfoSnapshot?.institution || 'Institution N/A'}
+                      </div>
+                    </td>
+                    <td>{app.sponsorship.title}</td>
+                    <td>{new Date(app.createdAt).toLocaleDateString()}</td>
+                    <td>
+                      <button 
+                        className="secondary-button"
+                        onClick={() => navigate('/sponsor/applications', { state: { sponsorshipId: app.sponsorship._id } })}
+                      >
+                        Review
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
-      </section>
-
-      {/* Priority Section: Applications Awaiting Review */}
-      <section className="active-section">
-        <div className="section-header">
-          <div>
-            <h3>Applications to Review</h3>
-            <p className="section-meta">
-              Security screened & verified applications ready for your funding decision
-            </p>
-          </div>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => navigate('/sponsor/applications')}
-          >
-            View All ({pendingReviews.length})
-          </button>
-        </div>
-
-        <div className="content-grid">
-          {pendingReviews.map((app) => (
-            <div key={app.id} className="card">
-              <div className="card-header">
-                <div>
-                  <h4>{app.studentName}</h4>
-                  <p className="card-meta">
-                    {app.programme} • {app.institution}
-                  </p>
-                </div>
-                <span className="badge badge-warning">Needs Review</span>
-              </div>
-
-              <div className="timeline" style={{ margin: '12px 0' }}>
-                <div className="timeline-item">
-                  <span className="timeline-label">Opportunity</span>
-                  <span className="timeline-date" style={{ fontSize: '0.88rem' }}>
-                    {app.sponsorshipTitle}
-                  </span>
-                </div>
-                <div className="timeline-item">
-                  <span className="timeline-label">Current GPA</span>
-                  <span className="timeline-date">{app.gpa}</span>
-                </div>
-                <div className="timeline-item">
-                  <span className="timeline-label">Screened Date</span>
-                  <span className="timeline-date">{app.dateCleared}</span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-                <button
-                  type="button"
-                  className="primary-button"
-                  style={{ flex: 1 }}
-                  onClick={() => navigate('/sponsor/applications')}
-                >
-                  Review Details
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Active Sponsorship Opportunities */}
-      <section className="active-section">
-        <div className="section-header">
-          <div>
-            <h3>My Sponsorship Opportunities</h3>
-            <p className="section-meta">
-              Overview of your active funding listings and application counts
-            </p>
-          </div>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => navigate('/sponsor/opportunities')}
-          >
-            Manage All
-          </button>
-        </div>
-
-        <div className="content-grid">
-          {activeSponsorships.map((sponsorship) => (
-            <div key={sponsorship.id} className="card">
-              <div className="card-header">
-                <div>
-                  <h4>{sponsorship.title}</h4>
-                  <p className="card-meta">Award: {sponsorship.awardAmount}</p>
-                </div>
-                <span
-                  className={`badge ${
-                    sponsorship.applicantsCount > 0 ? 'badge-info' : 'badge-success'
-                  }`}
-                >
-                  {sponsorship.status}
-                </span>
-              </div>
-
-              <p style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)', margin: '8px 0 16px' }}>
-                ℹ️ {sponsorship.lockedReason}
-              </p>
-
-              <div className="timeline" style={{ margin: '8px 0 16px' }}>
-                <div className="timeline-item">
-                  <span className="timeline-label">Total Applicants</span>
-                  <span className="timeline-date">{sponsorship.applicantsCount}</span>
-                </div>
-                <div className="timeline-item">
-                  <span className="timeline-label">Application Deadline</span>
-                  <span className="timeline-date">{sponsorship.deadline}</span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className="secondary-button"
-                style={{ width: '100%' }}
-                onClick={() => navigate('/sponsor/opportunities')}
-              >
-                View Opportunity Details
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Quick Actions */}
-      <section className="actions-section">
-        <div className="section-header">
-          <h3>Sponsor Tools & Shortcuts</h3>
-        </div>
-
-        <div className="action-grid">
-          <button
-            type="button"
-            className="action-card"
-            onClick={() => navigate('/sponsor/opportunities')}
-          >
-            <div className="action-icon">🎯</div>
-            <h4>Create Sponsorship</h4>
-            <p>Publish a new funding opportunity</p>
-          </button>
-
-          <button
-            type="button"
-            className="action-card"
-            onClick={() => navigate('/sponsor/applications')}
-          >
-            <div className="action-icon">📝</div>
-            <h4>Review Applications</h4>
-            <p>Approve or decline screened candidates</p>
-          </button>
-
-          <button
-            type="button"
-            className="action-card"
-            onClick={() => navigate('/sponsor/students')}
-          >
-            <div className="action-icon">👥</div>
-            <h4>Student Directory</h4>
-            <p>Discover students seeking sponsorship</p>
-          </button>
-
-          <button
-            type="button"
-            className="action-card"
-            onClick={() => navigate('/sponsor/profile')}
-          >
-            <div className="action-icon">🏢</div>
-            <h4>Organization Profile</h4>
-            <p>Manage your sponsor organization details</p>
-          </button>
-        </div>
-      </section>
+        )}
+      </div>
     </div>
   )
 }
-
