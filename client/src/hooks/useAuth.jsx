@@ -1,4 +1,5 @@
 import { createContext, useState, useContext } from 'react'
+import api from '../services/api'
 
 const AuthContext = createContext(null)
 
@@ -12,27 +13,41 @@ export function AuthProvider({ children }) {
     }
   })
 
-  function login(email, role) {
-    const newUser = { email, role }
-    setUser(newUser)
+  async function login(email, password) {
     try {
-      localStorage.setItem('scholar_user', JSON.stringify(newUser))
-    } catch (err) {
-      console.error('Failed to save auth state', err)
+      const { data } = await api.post('/auth/login', { email, password })
+      setUser(data)
+      localStorage.setItem('scholar_user', JSON.stringify(data))
+      return data
+    } catch (error) {
+      throw error.response?.data?.message || 'Login failed'
     }
   }
 
-  function logout() {
-    setUser(null)
+  async function register(userData) {
     try {
+      const { data } = await api.post('/auth/register', userData)
+      setUser(data)
+      localStorage.setItem('scholar_user', JSON.stringify(data))
+      return data
+    } catch (error) {
+      throw error.response?.data?.message || 'Registration failed'
+    }
+  }
+
+  async function logout() {
+    try {
+      await api.post('/auth/logout')
+    } catch (error) {
+      console.error('Logout API error', error)
+    } finally {
+      setUser(null)
       localStorage.removeItem('scholar_user')
-    } catch (err) {
-      console.error('Failed to clear auth state', err)
     }
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   )

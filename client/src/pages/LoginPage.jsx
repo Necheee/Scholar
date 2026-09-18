@@ -8,19 +8,27 @@ export default function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
 
+  const [error, setError] = useState('')
+
   function handleChange(event) {
     const { name, value } = event.target
     setForm((current) => ({ ...current, [name]: value }))
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
-    if (!form.email) return
+    if (!form.email || !form.password) return
     
-    // Mock login: infer role from email domain for demo purposes
-    const role = form.email.includes('sponsor') ? 'sponsor' : form.email.includes('admin') ? 'admin' : 'student'
-    login(form.email, role)
-    navigate(`/${role}`)
+    setError('')
+    try {
+      const user = await login(form.email, form.password)
+      // Navigate based on the actual role returned by the backend
+      if (user.role === 'Student') navigate('/student')
+      else if (user.role === 'Sponsor') navigate('/sponsor')
+      else if (user.role === 'Admin') navigate('/admin')
+    } catch (err) {
+      setError(err)
+    }
   }
 
   return (
@@ -32,6 +40,7 @@ export default function LoginPage() {
       footerTo="/register"
     >
       <form className="auth-form" onSubmit={handleSubmit}>
+        {error && <div className="error-alert" style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}
         <div className="field-group">
           <label htmlFor="email">Email</label>
           <input
@@ -71,9 +80,6 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <div className="auth-hint">
-        <p><strong>Demo hint:</strong> Use emails containing "sponsor" or "admin" to test different roles (e.g., sponsor@example.com)</p>
-      </div>
     </AuthLayout>
   )
 }
