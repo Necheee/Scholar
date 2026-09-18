@@ -1,140 +1,120 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../../services/api'
+import { useAuth } from '../../hooks/useAuth'
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  
+  const [stats, setStats] = useState({
+    flaggedPending: 0,
+    totalFlagged: 0
+  })
+  const [recentFlagged, setRecentFlagged] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const stats = [
-    { label: 'Flagged Applications', value: 12, color: 'warning' },
-    { label: 'Pending Info Requests', value: 4, color: 'accent' },
-    { label: 'Applications Cleared Today', value: 28, color: 'success' },
-  ]
+  useEffect(() => {
+    async function fetchAdminData() {
+      try {
+        setIsLoading(true)
+        const { data } = await api.get('/applications/flagged')
+        
+        const pending = data.filter(app => app.status === 'Under Admin review')
+        
+        setStats({
+          flaggedPending: pending.length,
+          totalFlagged: data.length
+        })
+        
+        setRecentFlagged(pending.slice(0, 3))
+      } catch (error) {
+        console.error('Failed to load admin data:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchAdminData()
+  }, [])
+
+  if (isLoading) return <div>Loading dashboard...</div>
 
   return (
-    <div className="student-dashboard">
-      <section className="dashboard-welcome">
-        <div className="section-header">
-          <div>
-            <h3>Admin Dashboard</h3>
-            <p className="section-meta">
-              Overview of system activity, fraud detection, and pending reviews.
+    <div className="dashboard">
+      <div className="section-header" style={{ marginBottom: '32px' }}>
+        <div>
+          <h2>Welcome, {user?.name || 'Admin'}</h2>
+          <p className="section-meta">
+            Overview of system activity, fraud detection, and manual review queues.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="primary-button"
+          onClick={() => navigate('/admin/flagged')}
+        >
+          Review Flagged
+        </button>
+      </div>
+
+      <div className="stats-grid">
+        <div className="stat-card" style={{ borderTop: '4px solid #eab308' }}>
+          <div className="stat-value">{stats.flaggedPending}</div>
+          <div className="stat-label">Action Required (Flagged)</div>
+        </div>
+        <div className="stat-card" style={{ borderTop: '4px solid #3b82f6' }}>
+          <div className="stat-value">{stats.totalFlagged}</div>
+          <div className="stat-label">Total Historically Flagged</div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: '40px' }}>
+        <h3 style={{ fontSize: '1.25rem', marginBottom: '16px' }}>Urgent Fraud Reviews</h3>
+        
+        {recentFlagged.length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
+            <p style={{ color: 'var(--color-ink-soft)' }}>
+              No applications require manual admin review at this time. The fraud engine queue is clear!
             </p>
           </div>
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => navigate('/admin/flagged')}
-          >
-            Review Flagged
-          </button>
-        </div>
-      </section>
-
-      <section className="stats-grid">
-        {stats.map(({ label, value, color }) => (
-          <div key={label} className={`stat-card stat-${color}`}>
-            <p className="stat-label">{label}</p>
-            <p className="stat-value">{value}</p>
+        ) : (
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Applicant</th>
+                  <th>Opportunity</th>
+                  <th>Flagged On</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentFlagged.map((app) => (
+                  <tr key={app._id}>
+                    <td>
+                      <strong>{app.student.name}</strong>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>
+                        {app.student.email}
+                      </div>
+                    </td>
+                    <td>{app.sponsorship?.title}</td>
+                    <td>{new Date(app.createdAt).toLocaleDateString()}</td>
+                    <td>
+                      <button 
+                        className="secondary-button"
+                        onClick={() => navigate('/admin/flagged')}
+                      >
+                        Resolve
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
-      </section>
-
-      <section className="active-section">
-        <div className="section-header">
-          <div>
-            <h3>Recent Activity</h3>
-            <p className="section-meta">
-              System-wide events requiring your attention
-            </p>
-          </div>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => navigate('/admin/activity')}
-          >
-            View All Activity
-          </button>
-        </div>
-
-        <div className="content-grid">
-          <div className="card wide">
-            <div className="card-header">
-              <div>
-                <h4>Application Flagged: High Risk</h4>
-                <p className="card-meta">John Doe - Tech Innovators Scholarship</p>
-              </div>
-              <span className="badge" style={{ background: 'var(--color-danger)', color: 'white' }}>Needs Review</span>
-            </div>
-            <p style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)', margin: '8px 0 16px' }}>
-              10 minutes ago
-            </p>
-          </div>
-
-          <div className="card wide">
-            <div className="card-header">
-              <div>
-                <h4>Student Responded to Request</h4>
-                <p className="card-meta">Alice Smith uploaded new transcript</p>
-              </div>
-              <span className="badge" style={{ background: 'var(--color-accent)', color: 'white' }}>Update</span>
-            </div>
-            <p style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)', margin: '8px 0 16px' }}>
-              2 hours ago
-            </p>
-          </div>
-
-          <div className="card wide">
-            <div className="card-header">
-              <div>
-                <h4>Sponsor Approved Application</h4>
-                <p className="card-meta">Tech Corp approved Jane Doe</p>
-              </div>
-              <span className="badge" style={{ background: 'var(--color-success)', color: 'white' }}>Approved</span>
-            </div>
-            <p style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)', margin: '8px 0 16px' }}>
-              5 hours ago
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="actions-section">
-        <div className="section-header">
-          <h3>Admin Tools & Shortcuts</h3>
-        </div>
-
-        <div className="action-grid">
-          <button
-            type="button"
-            className="action-card"
-            onClick={() => navigate('/admin/flagged')}
-          >
-            <div className="action-icon">🚩</div>
-            <h4>Flagged Apps</h4>
-            <p>Review applications flagged for fraud</p>
-          </button>
-
-          <button
-            type="button"
-            className="action-card"
-            onClick={() => navigate('/admin/requests')}
-          >
-            <div className="action-icon">📩</div>
-            <h4>Info Requests</h4>
-            <p>Track pending requests from students</p>
-          </button>
-
-          <button
-            type="button"
-            className="action-card"
-            onClick={() => navigate('/admin/activity')}
-          >
-            <div className="action-icon">📊</div>
-            <h4>System Activity</h4>
-            <p>View system-wide activity logs</p>
-          </button>
-        </div>
-      </section>
+        )}
+      </div>
     </div>
   )
 }
-
