@@ -40,13 +40,24 @@
 - ✅ Sponsorship & Applications REST API
 - ✅ File Storage (Cloudinary)
 - ✅ Custom Rule-Based Fraud Detection
-- ⏳ Notifications & Frontend Integration (Proxy & Auth Configured, Mock Removal Pending)
+- ✅ Notifications & Frontend Integration (Proxy & Auth Configured, Mock Removal Complete)
 
 ### What Works Now
 
 - **Frontend Only:** React mock UI
 - **Backend Only:** Node.js/MongoDB REST API fully built
-- **Integration Status:** Vite proxy configured. Ready for the massive task of replacing all `mockData.js` imports with Axios API calls.
+
+### Phase G: Frontend Integration & Notifications
+
+**Status: Complete**
+
+- Set up Vite proxy to connect to Express backend.
+- Replaced mock authentication with real Axios JWT implementation (`useAuth.jsx`, `LoginPage`, `RegisterPage`).
+- Rewrote the Sponsor Dashboard to fetch and create sponsorships via the API.
+- Rewrote the Student Dashboard to allow browsing active sponsorships and submitting applications (with Cloudinary uploads).
+- Rewrote the Admin Dashboard to fetch flagged applications from the fraud engine and allow manual clearing/rejection.
+- Rewrote the Notification pages for all roles to fetch from the database.
+
 - Role-based routing (`/student`, `/sponsor`, `/admin`) is fully implemented with flat nested routes inside the AppShell.
 - Student application workflow (multi-step form, draft saving, application history).
 - Sponsor opportunity creation and application review.
