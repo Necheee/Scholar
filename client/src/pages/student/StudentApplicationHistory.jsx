@@ -1,185 +1,107 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../../services/api'
 
 export default function StudentApplicationHistory() {
   const navigate = useNavigate()
+  const [applications, setApplications] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Mock application history
-  const applications = [
-    {
-      id: 'app-001',
-      sponsorshipTitle: 'Full Tuition + Living Expenses',
-      sponsor: 'Merit Foundation',
-      submittedDate: '2026-08-28',
-      status: 'In Review',
-      statusColor: 'info',
-      decision: null,
-      decidedDate: null,
-    },
-    {
-      id: 'app-003',
-      sponsorshipTitle: 'STEM Excellence Award',
-      sponsor: 'TechForward Foundation',
-      submittedDate: '2026-08-15',
-      status: 'Declined',
-      statusColor: 'danger',
-      decision: 'Not Selected',
-      decidedDate: '2026-08-25',
-    },
-    {
-      id: 'app-004',
-      sponsorshipTitle: 'Global Leaders Initiative',
-      sponsor: 'International Partnerships Ltd',
-      submittedDate: '2026-07-20',
-      status: 'Accepted',
-      statusColor: 'success',
-      decision: 'Accepted',
-      decidedDate: '2026-08-10',
-    },
-    {
-      id: 'app-005',
-      sponsorshipTitle: 'Arts & Humanities Grant',
-      sponsor: 'Creative Minds Fund',
-      submittedDate: '2026-07-05',
-      status: 'Rejected',
-      statusColor: 'danger',
-      decision: 'Not Selected',
-      decidedDate: '2026-07-15',
-    },
-  ]
+  useEffect(() => {
+    fetchApplications()
+  }, [])
 
-  const drafts = [
-    {
-      id: 'app-002',
-      sponsorshipTitle: 'Healthcare Professionals Scholarship',
-      sponsor: 'Health Futures Foundation',
-      savedDate: '2026-08-20',
-      progress: 40,
-    },
-  ]
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'Accepted':
-        return '✓'
-      case 'In Review':
-        return '⏳'
-      case 'Declined':
-      case 'Rejected':
-        return '✕'
-      default:
-        return '•'
+  async function fetchApplications() {
+    try {
+      setIsLoading(true)
+      const { data } = await api.get('/applications/my-applications')
+      setApplications(data)
+    } catch (error) {
+      console.error('Failed to fetch applications:', error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
+  function getStatusStyle(status) {
+    if (status === 'Approved') return 'status-active'
+    if (status === 'Rejected') return 'status-closed'
+    if (status === 'Flagged') return 'status-warning'
+    return 'status-active' // Default styling for 'In Review', 'Under screening', etc.
+  }
+
+  if (isLoading) return <div>Loading application history...</div>
+
   return (
     <div className="application-history">
-      {/* Submitted Applications */}
-      <section className="history-section">
-        <div className="section-header">
-          <h3>Submitted Applications</h3>
-          <p className="section-meta">{applications.length} applications</p>
+      <div className="section-header" style={{ marginBottom: '24px' }}>
+        <div>
+          <h2>My Applications</h2>
+          <p className="section-meta">
+            Track the status of your scholarship and funding requests.
+          </p>
         </div>
+        <button 
+          className="primary-button" 
+          onClick={() => navigate('/student/sponsorships')}
+        >
+          Find Opportunities
+        </button>
+      </div>
 
-        <div className="applications-list">
-          {applications.map(app => (
-            <div key={app.id} className="card application-history-card">
-              <div className="card-header">
-                <div>
-                  <h4>{app.sponsorshipTitle}</h4>
-                  <p className="sponsor-name">{app.sponsor}</p>
-                </div>
-                <span className={`status-badge status-${app.statusColor}`}>
-                  {getStatusIcon(app.status)} {app.status}
-                </span>
-              </div>
-
-              <div className="timeline">
-                <div className="timeline-item">
-                  <span className="timeline-label">Submitted</span>
-                  <span className="timeline-date">{app.submittedDate}</span>
-                </div>
-                {app.decidedDate && (
-                  <div className="timeline-item">
-                    <span className="timeline-label">Decision</span>
-                    <span className="timeline-date">{app.decidedDate}</span>
-                  </div>
-                )}
-              </div>
-
-              {app.decision && (
-                <p className="decision-note">
-                  <strong>{app.decision}</strong>
-                </p>
-              )}
-
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => navigate(`/student/application/${app.id}`)}
-              >
-                View Details
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Draft Applications */}
-      {drafts.length > 0 && (
-        <section className="history-section">
-          <div className="section-header">
-            <h3>Draft Applications</h3>
-            <p className="section-meta">{drafts.length} draft(s)</p>
+      <div className="card">
+        {applications.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-ink-soft)' }}>
+            <p>You haven't submitted any applications yet.</p>
           </div>
-
-          <div className="drafts-list">
-            {drafts.map(draft => (
-              <div key={draft.id} className="card draft-history-card">
-                <div className="card-header">
-                  <div>
-                    <h4>{draft.sponsorshipTitle}</h4>
-                    <p className="sponsor-name">{draft.sponsor}</p>
-                  </div>
-                  <span className="badge badge-warning">Draft</span>
-                </div>
-
-                <div className="progress-section">
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${draft.progress}%` }} />
-                  </div>
-                  <p className="progress-text">{draft.progress}% Complete</p>
-                </div>
-
-                <p className="draft-meta">Saved {draft.savedDate}</p>
-
-                <button
-                  type="button"
-                  className="primary-button"
-                  onClick={() => navigate(`/student/application/draft/${draft.id}`)}
-                >
-                  Continue Draft
-                </button>
-              </div>
-            ))}
+        ) : (
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Opportunity</th>
+                  <th>Submitted On</th>
+                  <th>Status</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {applications.map((app) => (
+                  <tr key={app._id}>
+                    <td>
+                      <strong>{app.sponsorship?.title || 'Unknown Opportunity'}</strong>
+                      {/* {app.sponsorship?.sponsor?.name && (
+                        <div style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>
+                          {app.sponsorship.sponsor.name}
+                        </div>
+                      )} */}
+                    </td>
+                    <td>{new Date(app.createdAt).toLocaleDateString()}</td>
+                    <td>
+                      <span className={`status-badge ${getStatusStyle(app.status)}`}>
+                        {app.status}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>
+                        {app.status === 'Rejected' && app.rejectionReason && (
+                          <div style={{ color: '#d32f2f' }}>Reason: {app.rejectionReason}</div>
+                        )}
+                        {app.status === 'Approved' && (
+                          <div style={{ color: '#2e7d32' }}>Congratulations!</div>
+                        )}
+                        {app.status !== 'Rejected' && app.status !== 'Approved' && (
+                          <div>Being Processed</div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </section>
-      )}
-
-      {/* Empty State */}
-      {applications.length === 0 && drafts.length === 0 && (
-        <div className="empty-state">
-          <p className="empty-icon">📋</p>
-          <h4>No applications yet</h4>
-          <p>Start by browsing sponsorships and submitting your first application</p>
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => navigate('/student/sponsorships')}
-          >
-            Browse Sponsorships
-          </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

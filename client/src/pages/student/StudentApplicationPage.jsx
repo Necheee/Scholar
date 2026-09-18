@@ -1,94 +1,106 @@
-import { useParams, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import ApplicationFormWizard from '../../components/ApplicationFormWizard'
-import { analyzeApplication } from '../../services/mockFraudEngine'
-import { saveApplication } from '../../services/mockDatabase'
+import api from '../../services/api'
 
 export default function StudentApplicationPage() {
   const { appId } = useParams()
   const navigate = useNavigate()
+  const { state } = useLocation()
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Mock sponsorship data
-  const sponsorshipData = {
-    id: appId || 'opp-042',
-    title: 'Full Tuition + Living Expenses',
-    sponsor: 'Merit Foundation',
-    amount: 80000,
-    description: 'Merit-based full sponsorship for high-performing students',
-    deadline: '2026-09-20',
+  // Use the sponsorship data passed from the navigation state if available
+  const sponsorshipData = state?.sponsorship || {
+    _id: appId,
+    title: 'Loading Opportunity...',
+  }
+
+  const uploadFile = async (file) => {
+    const formData = new FormData()
+    formData.append('document', file)
+    const { data } = await api.post('/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return {
+      cloudinaryUrl: data.url,
+      cloudinaryId: data.cloudinaryId
+    }
   }
 
   const handleSubmit = async (formData) => {
-    // Run fraud analysis
-    const fraudResult = analyzeApplication(formData)
-    
-    // Save to mock database
-    saveApplication({
-      ...formData,
-      studentName: 'Test Student', // hardcoded for mock
-      institution: formData.school,
-      programme: formData.major,
-      level: formData.year,
-      session: '2025/2026',
-      sponsorshipTitle: sponsorshipData.title,
-      reasonForSponsorship: formData.motivation,
-      submittedInfo: formData.goals,
-      status: fraudResult.isFlagged ? 'flagged' : 'approved',
-      fraudAnalysis: fraudResult,
-    })
-    
-    console.log('Application submitted:', formData, 'Fraud Result:', fraudResult)
-    
-    // Show success message and navigate
-    alert(fraudResult.isFlagged ? 'Application submitted but flagged for admin review.' : 'Application submitted successfully!')
-    navigate('/student')
+    setIsSubmitting(true)
+    try {
+      const documents = []
+      
+      // Upload ID Document
+      if (formData.idDocument) {
+        const uploaded = await uploadFile(formData.idDocument)
+        documents.push({
+          type: formData.idType || 'ID Document',
+          ...uploaded
+        })
+      }
+      
+      // Upload Supporting Documents
+      if (formData.documents && formData.documents.length > 0) {
+        for (const file of formData.documents) {
+          const uploaded = await uploadFile(file)
+          documents.push({
+            type: 'Supporting Document',
+            ...uploaded
+          })
+        }
+      }
+
+      // Build payload matching Application model
+      const payload = {
+        sponsorshipId: appId,
+        reasonForRequesting: formData.motivation + (formData.goals ? `\n\nGoals: ${formData.goals}` : ''),
+        academicInfoSnapshot: {
+          session: '2025/2026',
+          level: formData.year,
+          programme: formData.major
+        },
+        documents
+      }
+
+      await api.post('/applications', payload)
+      
+      alert('Application submitted successfully! Our automated system will now screen your application.')
+      navigate('/student/applications')
+    } catch (error) {
+      console.error('Submission failed:', error)
+      alert(error.response?.data?.message || 'Failed to submit application')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
     <div className="application-page">
-      <div className="application-header">
-        <button
-          type="button"
-          className="back-button"
-          onClick={() => navigate(-1)}
-        >
-          ← Back
-        </button>
+      <div className="section-header" style={{ marginBottom: '24px' }}>
         <div>
-          <h3>New Application</h3>
-          <p className="application-meta">{sponsorshipData.title} • {sponsorshipData.sponsor}</p>
+          <h2>Apply for Sponsorship</h2>
+          <p className="section-meta">
+            You are applying for <strong>{sponsorshipData.title}</strong>
+          </p>
         </div>
       </div>
 
-      <div className="application-container">
-        <div className="application-sidebar">
-          <div className="sponsorship-info card">
-            <h4>{sponsorshipData.title}</h4>
-            <p className="sponsor-name">{sponsorshipData.sponsor}</p>
-
-            <div className="info-item">
-              <span className="label">Award Amount</span>
-              <span className="value">${(sponsorshipData.amount / 1000).toFixed(0)}k</span>
-            </div>
-
-            <div className="info-item">
-              <span className="label">Deadline</span>
-              <span className="value">{sponsorshipData.deadline}</span>
-            </div>
-
-            <p className="sponsorship-description">{sponsorshipData.description}</p>
-
-            <div className="save-draft-notice">
-              <p>💾 <strong>Auto-save enabled:</strong> Your progress is saved at each step</p>
-            </div>
+      <div className="card">
+        {isSubmitting ? (
+          <div style={{ padding: '40px', textAlign: 'center' }}>
+            <h3 style={{ marginBottom: '12px' }}>Submitting your application...</h3>
+            <p style={{ color: 'var(--color-ink-soft)' }}>
+              Please wait while we securely upload your documents and process your request.
+            </p>
           </div>
-        </div>
-
-        <div className="application-main">
-          <ApplicationFormWizard
-            sponsorshipId={sponsorshipData.id}
+        ) : (
+          <ApplicationFormWizard 
+            sponsorshipId={appId}
             onSubmit={handleSubmit}
           />
-        </div>
+        )}
       </div>
     </div>
   )
