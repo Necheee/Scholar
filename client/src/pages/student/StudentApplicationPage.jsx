@@ -43,8 +43,8 @@ export default function StudentApplicationPage() {
       
       // Upload Supporting Documents
       if (formData.documents && formData.documents.length > 0) {
-        for (const file of formData.documents) {
-          const uploaded = await uploadFile(file)
+        for (const doc of formData.documents) {
+          const uploaded = await uploadFile(doc.file)
           documents.push({
             type: 'Supporting Document',
             ...uploaded
@@ -67,7 +67,7 @@ export default function StudentApplicationPage() {
       await api.post('/applications', payload)
       
       alert('Application submitted successfully! Our automated system will now screen your application.')
-      navigate('/student/applications')
+      navigate('/student/history')
     } catch (error) {
       console.error('Submission failed:', error)
       alert(error.response?.data?.message || 'Failed to submit application')

@@ -255,13 +255,13 @@ export default function ApplicationFormWizard({ sponsorshipId, onSubmit, initial
                   id="supportingDocs"
                   type="file"
                   multiple
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
+                  accept=".pdf,image/jpeg,image/png"
                   onChange={(e) => {
                     Array.from(e.target.files || []).forEach(file => handleAddDocument(file))
                   }}
                 />
                 <p>Click to browse or drag & drop</p>
-                <p style={{ fontSize: '0.8rem', marginTop: '4px' }}>PDF, Word, Excel, or Images (Max 5MB each)</p>
+                <p style={{ fontSize: '0.8rem', marginTop: '4px' }}>PDF, JPG, or PNG (Max 5MB each)</p>
               </label>
             </div>
 
