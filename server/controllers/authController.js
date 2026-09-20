@@ -8,7 +8,8 @@ import generateToken from '../utils/generateToken.js';
 // @access  Public
 export const loginUser = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const email = req.body.email.toLowerCase();
+    const password = req.body.password;
 
     const user = await User.findOne({ email });
 
@@ -35,7 +36,8 @@ export const loginUser = async (req, res, next) => {
 // @access  Public
 export const registerUser = async (req, res, next) => {
   try {
-    const { name, email, password, role, ...profileData } = req.body;
+    const { name, password, role, ...profileData } = req.body;
+    const email = req.body.email.toLowerCase();
 
     // Validate role
     if (!['Student', 'Sponsor'].includes(role)) {
