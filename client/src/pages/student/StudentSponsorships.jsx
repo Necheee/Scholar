@@ -99,7 +99,7 @@ export default function StudentSponsorships() {
                 <button
                   className="primary-button"
                   style={{ width: '100%' }}
-                  onClick={() => navigate(`/student/apply/${opp._id}`, { state: { sponsorship: opp } })}
+                  onClick={() => navigate(`/student/application/${opp._id}`, { state: { sponsorship: opp } })}
                 >
                   Apply Now
                 </button>

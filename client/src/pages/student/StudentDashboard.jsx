@@ -118,7 +118,7 @@ export default function StudentDashboard() {
             <button 
               className="secondary-button" 
               style={{ alignSelf: 'flex-start' }}
-              onClick={() => navigate('/student/applications')}
+              onClick={() => navigate('/student/history')}
             >
               View Full History
             </button>
