@@ -217,11 +217,11 @@ export default function SponsorProfile() {
           </div>
 
           <div className="settings-list">
-            <button type="button" className="settings-item">
+            <button type="button" className="settings-item" onClick={() => alert('This feature is currently in development and will be available soon!')}>
               <span>Organization Password & 2FA</span>
               <span className="arrow">→</span>
             </button>
-            <button type="button" className="settings-item">
+            <button type="button" className="settings-item" onClick={() => alert('This feature is currently in development and will be available soon!')}>
               <span>Manage Sponsor Team Members</span>
               <span className="arrow">→</span>
             </button>

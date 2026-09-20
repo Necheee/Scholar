@@ -231,15 +231,15 @@ export default function StudentProfile() {
         <section className="profile-section card">
           <h3>Account & Security</h3>
           <div className="settings-list">
-            <button type="button" className="settings-item">
+            <button type="button" className="settings-item" onClick={() => alert('This feature is currently in development and will be available soon!')}>
               <span>Change Password</span>
               <span className="arrow">→</span>
             </button>
-            <button type="button" className="settings-item">
+            <button type="button" className="settings-item" onClick={() => alert('This feature is currently in development and will be available soon!')}>
               <span>Two-Factor Authentication</span>
               <span className="arrow">→</span>
             </button>
-            <button type="button" className="settings-item danger">
+            <button type="button" className="settings-item danger" onClick={() => alert('This feature is currently in development and will be available soon!')}>
               <span>Delete Account</span>
               <span className="arrow">→</span>
             </button>
