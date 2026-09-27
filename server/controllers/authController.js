@@ -190,3 +190,57 @@ export const resetPassword = async (req, res, next) => {
     next(error);
   }
 };
+// @desc    Change user password
+// @route   PUT /api/auth/change-password
+// @access  Private
+export const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    
+    if (!currentPassword || !newPassword) {
+      res.status(400);
+      throw new Error('Please provide current and new passwords');
+    }
+
+    const user = await User.findById(req.user._id).select('+password');
+
+    if (!(await user.matchPassword(currentPassword))) {
+      res.status(401);
+      throw new Error('Invalid current password');
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Delete user account
+// @route   DELETE /api/auth/delete-account
+// @access  Private
+export const deleteAccount = async (req, res, next) => {
+  try {
+    const { password } = req.body;
+
+    if (!password) {
+      res.status(400);
+      throw new Error('Please provide password to confirm account deletion');
+    }
+
+    const user = await User.findById(req.user._id).select('+password');
+
+    if (!(await user.matchPassword(password))) {
+      res.status(401);
+      throw new Error('Invalid password');
+    }
+
+    await User.findByIdAndDelete(req.user._id);
+    
+    res.json({ message: 'Account deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+};

@@ -1,6 +1,12 @@
 import { useState } from 'react'
+import api from '../../services/api'
+import { useAuth } from '../../hooks/useAuth'
 
 export default function StudentProfile() {
+  const { logout } = useAuth()
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [securityData, setSecurityData] = useState({ currentPassword: '', newPassword: '' })
   const [isEditing, setIsEditing] = useState(false)
   const [isSeeking, setIsSeeking] = useState(true)
 
@@ -29,6 +35,30 @@ export default function StudentProfile() {
     setProfile(editData)
     setIsEditing(false)
     alert('Profile updated successfully!')
+  }
+
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault()
+    try {
+      await api.put('/auth/change-password', securityData)
+      alert('Password updated successfully!')
+      setShowPasswordModal(false)
+      setSecurityData({ currentPassword: '', newPassword: '' })
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to update password')
+    }
+  }
+
+  const handleDeleteAccount = async (e) => {
+    e.preventDefault()
+    try {
+      await api.delete('/auth/delete-account', { data: { password: securityData.currentPassword } })
+      alert('Account deleted successfully.')
+      logout()
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to delete account')
+    }
   }
 
   const handleCancelEdit = () => {
@@ -231,18 +261,12 @@ export default function StudentProfile() {
         <section className="profile-section card">
           <h3>Account & Security</h3>
           <div className="settings-list">
-            <button type="button" className="settings-item" onClick={() => alert('This feature is currently in development and will be available soon!')}>
-              <span>Change Password</span>
-              <span className="arrow">→</span>
-            </button>
+            <button type="button" className="settings-item" onClick={() => setShowPasswordModal(true)}><span>Change Password</span><span className="arrow">&#8594;</span></button>
             <button type="button" className="settings-item" onClick={() => alert('This feature is currently in development and will be available soon!')}>
               <span>Two-Factor Authentication</span>
               <span className="arrow">→</span>
             </button>
-            <button type="button" className="settings-item danger" onClick={() => alert('This feature is currently in development and will be available soon!')}>
-              <span>Delete Account</span>
-              <span className="arrow">→</span>
-            </button>
+            <button type="button" className="settings-item danger" onClick={() => setShowDeleteModal(true)}><span>Delete Account</span><span className="arrow">&#8594;</span></button>
           </div>
         </section>
       </div>
@@ -266,6 +290,50 @@ export default function StudentProfile() {
           </button>
         </div>
       )}
+
+      {showPasswordModal && (
+        <div className="modal-backdrop">
+          <div className="card modal-content" style={{ maxWidth: '400px', width: '100%' }}>
+            <div className="section-header" style={{ marginBottom: '16px' }}>
+              <h3>Change Password</h3>
+              <button className="action-button" onClick={() => setShowPasswordModal(false)}>X</button>
+            </div>
+            <form onSubmit={handleChangePassword}>
+              <div className="field-group">
+                <label>Current Password</label>
+                <input type="password" required value={securityData.currentPassword} onChange={(e) => setSecurityData(prev => ({...prev, currentPassword: e.target.value}))} />
+              </div>
+              <div className="field-group">
+                <label>New Password</label>
+                <input type="password" required value={securityData.newPassword} onChange={(e) => setSecurityData(prev => ({...prev, newPassword: e.target.value}))} />
+              </div>
+              <button type="submit" className="primary-button" style={{ width: '100%', marginTop: '16px' }}>Update Password</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div className="modal-backdrop">
+          <div className="card modal-content" style={{ maxWidth: '400px', width: '100%' }}>
+            <div className="section-header" style={{ marginBottom: '16px' }}>
+              <h3>Delete Account</h3>
+              <button className="action-button" onClick={() => setShowDeleteModal(false)}>X</button>
+            </div>
+            <div style={{ color: '#d32f2f', marginBottom: '16px' }}>
+              <strong>Warning:</strong> This action is permanent and cannot be undone.
+            </div>
+            <form onSubmit={handleDeleteAccount}>
+              <div className="field-group">
+                <label>Enter password to confirm</label>
+                <input type="password" required value={securityData.currentPassword} onChange={(e) => setSecurityData(prev => ({...prev, currentPassword: e.target.value}))} />
+              </div>
+              <button type="submit" className="primary-button" style={{ width: '100%', marginTop: '16px', background: '#d32f2f', color: 'white' }}>Delete Account</button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+

@@ -1,6 +1,11 @@
 import { useState } from 'react'
+import api from '../../services/api'
+import { useAuth } from '../../hooks/useAuth'
 
 export default function SponsorProfile() {
+  const { logout } = useAuth()
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [securityData, setSecurityData] = useState({ currentPassword: '', newPassword: '' })
   const [isEditing, setIsEditing] = useState(false)
 
   const [profile, setProfile] = useState({
@@ -217,10 +222,7 @@ export default function SponsorProfile() {
           </div>
 
           <div className="settings-list">
-            <button type="button" className="settings-item" onClick={() => alert('This feature is currently in development and will be available soon!')}>
-              <span>Organization Password & 2FA</span>
-              <span className="arrow">→</span>
-            </button>
+            <button type="button" className="settings-item" onClick={() => setShowPasswordModal(true)}><span>Organization Password & 2FA</span><span className="arrow">&#8594;</span></button>
             <button type="button" className="settings-item" onClick={() => alert('This feature is currently in development and will be available soon!')}>
               <span>Manage Sponsor Team Members</span>
               <span className="arrow">→</span>
@@ -240,7 +242,30 @@ export default function SponsorProfile() {
           </button>
         </div>
       )}
+
+      {showPasswordModal && (
+        <div className="modal-backdrop">
+          <div className="card modal-content" style={{ maxWidth: '400px', width: '100%' }}>
+            <div className="section-header" style={{ marginBottom: '16px' }}>
+              <h3>Change Password</h3>
+              <button className="action-button" onClick={() => setShowPasswordModal(false)}>X</button>
+            </div>
+            <form onSubmit={handleChangePassword}>
+              <div className="field-group">
+                <label>Current Password</label>
+                <input type="password" required value={securityData.currentPassword} onChange={(e) => setSecurityData(prev => ({...prev, currentPassword: e.target.value}))} />
+              </div>
+              <div className="field-group">
+                <label>New Password</label>
+                <input type="password" required value={securityData.newPassword} onChange={(e) => setSecurityData(prev => ({...prev, newPassword: e.target.value}))} />
+              </div>
+              <button type="submit" className="primary-button" style={{ width: '100%', marginTop: '16px' }}>Update Password</button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
 
