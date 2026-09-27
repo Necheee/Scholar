@@ -1,4 +1,5 @@
 import Sponsorship from '../models/Sponsorship.js';
+import Application from '../models/Application.js';
 
 // @desc    Create a new sponsorship
 // @route   POST /api/sponsorships
@@ -37,7 +38,18 @@ export const createSponsorship = async (req, res, next) => {
 // @access  Public or Private (Students/Sponsors)
 export const getSponsorships = async (req, res, next) => {
   try {
-    const sponsorships = await Sponsorship.find({ status: 'Active' }).populate('sponsor', 'name');
+    let sponsorships = await Sponsorship.find({ status: 'Active' }).populate('sponsor', 'name');
+    
+    // If a student is fetching the list, hide the sponsorships they have already applied to
+    if (req.user && req.user.role === 'Student') {
+      const studentApps = await Application.find({ 
+        student: req.user._id, 
+        status: { $ne: 'Withdrawn' } 
+      });
+      const appliedSponsorshipIds = studentApps.map(app => app.sponsorship.toString());
+      sponsorships = sponsorships.filter(s => !appliedSponsorshipIds.includes(s._id.toString()));
+    }
+
     res.json(sponsorships);
   } catch (error) {
     next(error);
