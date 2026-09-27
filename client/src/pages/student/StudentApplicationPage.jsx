@@ -16,6 +16,11 @@ export default function StudentApplicationPage() {
   }
 
   const uploadFile = async (file) => {
+    // Frontend File Size Check (5MB = 5 * 1024 * 1024)
+    if (file.size > 5242880) {
+      throw new Error(`File "${file.name}" exceeds the 5MB size limit. Please upload a smaller file.`);
+    }
+
     const formData = new FormData()
     formData.append('document', file)
     const { data } = await api.post('/upload', formData, {
