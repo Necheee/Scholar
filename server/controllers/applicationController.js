@@ -2,6 +2,7 @@ import Application from '../models/Application.js';
 import Sponsorship from '../models/Sponsorship.js';
 import { runFraudDetection } from '../services/fraudDetectionService.js';
 import { createNotification } from '../services/notificationService.js';
+import { logActivity } from '../services/activityService.js';
 
 // @desc    Submit a new application
 // @route   POST /api/applications
@@ -52,6 +53,14 @@ export const submitApplication = async (req, res, next) => {
     // In a real production system, this would be pushed to a queue (e.g. RabbitMQ / Redis)
     // For this project, we await it directly or let it run in background
     const evaluatedApp = await runFraudDetection(application._id);
+
+    await logActivity(
+      'Application Submitted',
+      `Student applied for sponsorship "${sponsorship.title}".`,
+      req.user._id,
+      'Student',
+      application._id
+    );
 
     res.status(201).json(evaluatedApp || application);
   } catch (error) {
@@ -194,8 +203,14 @@ export const adminReviewApplication = async (req, res, next) => {
       res.status(400);
       throw new Error('Invalid action');
     }
-
     await application.save();
+    await logActivity(
+      'Admin Reviewed Application',
+      'Admin made a decision on a flagged application.',
+      req.user._id,
+      'Admin',
+      application._id
+    );
     res.json(application);
   } catch (error) {
     next(error);
@@ -250,8 +265,14 @@ export const sponsorReviewApplication = async (req, res, next) => {
       res.status(400);
       throw new Error('Invalid action');
     }
-
     await application.save();
+    await logActivity(
+      'Sponsor Reviewed Application',
+      'Sponsor made a decision on an application.',
+      req.user._id,
+      'Sponsor',
+      application._id
+    );
     res.json(application);
   } catch (error) {
     next(error);
@@ -335,8 +356,19 @@ export const withdrawApplication = async (req, res, next) => {
     application.status = 'Withdrawn';
     await application.save();
 
+    
+    await logActivity(
+      'Application Withdrawn',
+      'Student withdrew their application.',
+      req.user._id,
+      'Student',
+      application._id
+    );
     res.json(application);
   } catch (error) {
     next(error);
   }
 };
+
+
+

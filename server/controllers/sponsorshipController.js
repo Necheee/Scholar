@@ -1,5 +1,6 @@
 import Sponsorship from '../models/Sponsorship.js';
 import Application from '../models/Application.js';
+import { logActivity } from '../services/activityService.js';
 
 // @desc    Create a new sponsorship
 // @route   POST /api/sponsorships
@@ -26,6 +27,14 @@ export const createSponsorship = async (req, res, next) => {
       applicationDeadline,
       duration,
     });
+
+    await logActivity(
+      'Sponsorship Created',
+      `Sponsorship "${title}" was created.`,
+      req.user._id,
+      'Sponsor',
+      sponsorship._id
+    );
 
     res.status(201).json(sponsorship);
   } catch (error) {
