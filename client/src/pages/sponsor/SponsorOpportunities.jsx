@@ -187,10 +187,10 @@ export default function SponsorOpportunities() {
                     <button
                       className="secondary-button"
                       style={{ flex: 1, fontSize: '0.85rem', opacity: 0.5, cursor: 'not-allowed' }}
-                      title="Applications have been received, so details are locked."
+                      title="Applications have been received, so details cannot be edited. It is still open to new applicants."
                       disabled
                     >
-                      Locked
+                      Live (No Editing)
                     </button>
                   )}
                 </div>
