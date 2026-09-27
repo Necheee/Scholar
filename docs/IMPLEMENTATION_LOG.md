@@ -80,3 +80,23 @@ We moved aggressively through the frontend mock implementation to establish the 
 ---
 
 **Related:** [PROJECT_STATUS](./PROJECT_STATUS.md) | [ARCHITECTURE](./ARCHITECTURE.md)
+## Session 4: Backend Integration, Security Fixes, and Missing Features
+
+**Dates:** 2026-09-27  
+**Work:** Fixed critical backend bugs, implemented password reset flow, application withdrawal, student draft saving, and request information loop.  
+**Status:** o. Code ready | o. Features verified
+
+### Features Implemented
+- **Forgot/Reset Password Flow:** Built the backend reset-token logic, email sending (mocked for development), and connected \ForgotPasswordPage\ / \ResetPasswordPage\.
+- **The "Request Information" Loop:** Built a UI for the student to view the requested information and upload new documents via \ProvideInfoModal.jsx\. Updated backend API to handle it and ping the Sponsor/Admin back. Added "Request Info" button to Sponsor and Admin review panels.
+- **Withdraw Application:** Added a "Withdraw" button to \StudentApplicationHistory.jsx\ and the backend route \PUT /api/applications/:id/withdraw\ to handle cancellations securely.
+- **Student Draft Saving:** Added a "Save as Draft" function to the multi-step application form to persist partial application data in \localStorage\.
+- **Sponsorship Feed Filtering:** Modified \getSponsorships\ to automatically hide sponsorships that a student has already applied for to prevent duplicate applications.
+
+### Critical Fixes
+- **Fraud Engine Null Crash:** Added a null check to \checkAcademicInconsistency\ to prevent the Fraud Engine from crashing when processing applications for users without completed profiles.
+- **Mongoose Async Hooks Bug:** Removed \
+ext()\ calls from async Mongoose middleware (\pre('save')\) to fix silent backend crashes on save.
+- **Admin Approval Bug:** Fixed the Clear button in \AdminFlaggedApplications.jsx\ to send the correct \pprove\ action instead of \pass\.
+- **Sponsor "Locked" UI:** Renamed the misleading "Locked" button text to "Live (No Editing)" in \SponsorOpportunities.jsx\ to clarify that scholarships remain open to applicants.
+
