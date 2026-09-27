@@ -100,3 +100,14 @@ ext()\ calls from async Mongoose middleware (\pre('save')\) to fix silent backen
 - **Admin Approval Bug:** Fixed the Clear button in \AdminFlaggedApplications.jsx\ to send the correct \pprove\ action instead of \pass\.
 - **Sponsor "Locked" UI:** Renamed the misleading "Locked" button text to "Live (No Editing)" in \SponsorOpportunities.jsx\ to clarify that scholarships remain open to applicants.
 
+
+## Session 5: Admin Dashboards & Security Settings
+
+**Dates:** 2026-09-27  
+**Work:** Finished final remaining features on task list (Admin tracking dashboards, Activity Logging engine, and Profile security settings).
+**Status:** ?? Code ready | ?? Features verified
+
+### Features Implemented
+- **Global Activity Log:** Created a backend `ActivityLog` model and `activityService.js` to automatically record key user interactions (Application Submitted, Sponsorship Created, Decisions Made). Wired up `AdminActivity.jsx` to fetch and display this chronological feed.
+- **Information Requests Tracker:** Wired up `AdminInformationRequests.jsx` to query and display a centralized table of all applications currently stuck in the `Waiting for additional information` state.
+- **Security Settings (Change Password & Delete Account):** Implemented backend routes (`PUT /api/auth/change-password` and `DELETE /api/auth/delete-account`) requiring current password verification. Replaced dummy placeholder buttons in `StudentProfile.jsx` and `SponsorProfile.jsx` with secure modals linked to the new endpoints.
