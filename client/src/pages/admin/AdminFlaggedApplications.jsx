@@ -217,8 +217,16 @@ export default function AdminFlaggedApplications() {
                   </button>
                   <button 
                     className="primary-button" 
+                    style={{ background: '#f57c00', color: '#fff', border: 'none', flex: 1 }} 
+                    onClick={() => handleAdminDecision(selectedApp._id, 'request_info')}
+                  >
+                    Request Info
+                  </button>
+                  <button 
+                    className="primary-button" 
                     style={{ background: '#2e7d32', color: '#fff', border: 'none', flex: 1 }} 
                     onClick={() => handleAdminDecision(selectedApp._id, 'pass')}
+                    onClick={() => handleAdminDecision(selectedApp._id, 'approve')}
                   >
                     Clear Application (Send to Sponsor)
                   </button>

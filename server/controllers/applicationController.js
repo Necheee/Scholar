@@ -158,16 +158,31 @@ export const getFlaggedApplications = async (req, res, next) => {
 export const adminReviewApplication = async (req, res, next) => {
   try {
     const { action, reason } = req.body; // action: 'approve', 'reject', 'request_info'
-    const application = await Application.findById(req.params.id);
+    const application = await Application.findById(req.params.id).populate('sponsorship');
 
     if (!application) {
       res.status(404);
       throw new Error('Application not found');
     }
 
+    // Concurrency Lock: Prevent multiple people from reviewing simultaneously
+    if (application.status !== 'Under Admin review') {
+      res.status(409); // Conflict
+      throw new Error(`State Conflict: This application is currently '${application.status}' and cannot be reviewed by an Admin right now. Please refresh the page.`);
+    }
+
     if (action === 'approve') {
       application.status = 'Under Sponsor review';
       await createNotification(application.student, 'Application Cleared', `Your application for ${application.sponsorship.title} has passed screening and is now under Sponsor review.`, application._id);
+      
+      if (application.sponsorship && application.sponsorship.sponsor) {
+        await createNotification(
+          application.sponsorship.sponsor, 
+          'New Application Received', 
+          `An application for ${application.sponsorship.title} has passed Admin screening and is ready for your review.`, 
+          application._id
+        );
+      }
     } else if (action === 'reject') {
       application.status = 'Rejected';
       application.rejectionReason = reason;
@@ -206,9 +221,10 @@ export const sponsorReviewApplication = async (req, res, next) => {
       throw new Error('Not authorized to review this application');
     }
 
+    // Concurrency Lock: Prevent multiple people from reviewing simultaneously
     if (application.status !== 'Under Sponsor review') {
-      res.status(400);
-      throw new Error('Application is not ready for your review');
+      res.status(409); // Conflict
+      throw new Error(`State Conflict: This application is currently '${application.status}' and cannot be reviewed by a Sponsor right now. Please refresh the page.`);
     }
 
     if (action === 'approve') {
@@ -222,6 +238,14 @@ export const sponsorReviewApplication = async (req, res, next) => {
       application.status = 'Rejected';
       application.rejectionReason = reason;
       await createNotification(application.student, 'Application Rejected', `Unfortunately, your application for ${application.sponsorship.title} was rejected by the sponsor. Reason: ${reason}`, application._id);
+    } else if (action === 'request_info') {
+      if (!reason) {
+        res.status(400);
+        throw new Error('Reason for requesting information is required');
+      }
+      application.status = 'Waiting for additional information';
+      application.reasonForRequesting = reason;
+      await createNotification(application.student, 'Information Requested', `The Sponsor has requested additional information for your application: ${reason}`, application._id);
     } else {
       res.status(400);
       throw new Error('Invalid action');
@@ -234,3 +258,85 @@ export const sponsorReviewApplication = async (req, res, next) => {
   }
 };
 
+// @desc    Provide requested additional information
+// @route   PUT /api/applications/:id/provide-info
+// @access  Private/Student
+export const provideAdditionalInformation = async (req, res, next) => {
+  try {
+    const { documents } = req.body;
+    const application = await Application.findById(req.params.id).populate('sponsorship');
+
+    if (!application) {
+      res.status(404);
+      throw new Error('Application not found');
+    }
+
+    if (application.student.toString() !== req.user._id.toString()) {
+      res.status(403);
+      throw new Error('Not authorized to update this application');
+    }
+
+    if (application.status !== 'Waiting for additional information') {
+      res.status(400);
+      throw new Error('Application is not currently waiting for information');
+    }
+
+    if (!documents || documents.length === 0) {
+      res.status(400);
+      throw new Error('Please provide the requested documents');
+    }
+
+    // Append new documents
+    application.documents = [...application.documents, ...documents];
+    
+    // We revert it to Admin review (or Sponsor review, depending on who requested it. 
+    // We'll just default to Admin review for security so they can screen the new documents).
+    application.status = 'Under Admin review';
+
+    // Notify the sponsor if there is one
+    if (application.sponsorship && application.sponsorship.sponsor) {
+      await createNotification(
+        application.sponsorship.sponsor,
+        'Information Provided',
+        `The student has provided the requested information for their ${application.sponsorship.title} application.`,
+        application._id
+      );
+    }
+
+    await application.save();
+
+    res.json(application);
+  } catch (error) {
+    next(error);
+  }
+};
+// @desc    Withdraw application
+// @route   PUT /api/applications/:id/withdraw
+// @access  Private/Student
+export const withdrawApplication = async (req, res, next) => {
+  try {
+    const application = await Application.findById(req.params.id);
+
+    if (!application) {
+      res.status(404);
+      throw new Error('Application not found');
+    }
+
+    if (application.student.toString() !== req.user._id.toString()) {
+      res.status(403);
+      throw new Error('Not authorized to withdraw this application');
+    }
+
+    if (['Approved', 'Rejected', 'Withdrawn'].includes(application.status)) {
+      res.status(400);
+      throw new Error(`Cannot withdraw an application that is already ${application.status}`);
+    }
+
+    application.status = 'Withdrawn';
+    await application.save();
+
+    res.json(application);
+  } catch (error) {
+    next(error);
+  }
+};

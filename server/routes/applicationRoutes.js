@@ -6,7 +6,9 @@ import {
   getFlaggedApplications,
   getApplicationById,
   adminReviewApplication,
-  sponsorReviewApplication
+  sponsorReviewApplication,
+  provideAdditionalInformation,
+  withdrawApplication
 } from '../controllers/applicationController.js';
 import { protect, authorize } from '../middleware/authMiddleware.js';
 
@@ -32,6 +34,12 @@ router.route('/:id/admin-review')
 
 router.route('/:id/sponsor-review')
   .put(protect, authorize('Sponsor'), sponsorReviewApplication);
+
+router.route('/:id/provide-info')
+  .put(protect, authorize('Student'), provideAdditionalInformation);
+
+router.route('/:id/withdraw')
+  .put(protect, authorize('Student'), withdrawApplication);
 
 export default router;
 

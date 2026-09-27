@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
+import ProvideInfoModal from '../../components/ProvideInfoModal'
 
 export default function StudentApplicationHistory() {
   const navigate = useNavigate()
   const [applications, setApplications] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [provideInfoAppId, setProvideInfoAppId] = useState(null)
 
   useEffect(() => {
     fetchApplications()
@@ -23,9 +25,19 @@ export default function StudentApplicationHistory() {
     }
   }
 
+  async function handleWithdraw(appId) {
+    if (!window.confirm('Are you sure you want to withdraw this application? This action cannot be undone.')) return
+    try {
+      await api.put(`/applications/${appId}/withdraw`)
+      fetchApplications()
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to withdraw application')
+    }
+  }
+
   function getStatusStyle(status) {
     if (status === 'Approved') return 'status-active'
-    if (status === 'Rejected') return 'status-closed'
+    if (status === 'Rejected' || status === 'Withdrawn') return 'status-closed'
     if (status === 'Flagged') return 'status-warning'
     return 'status-active' // Default styling for 'In Review', 'Under screening', etc.
   }
@@ -90,8 +102,29 @@ export default function StudentApplicationHistory() {
                         {app.status === 'Approved' && (
                           <div style={{ color: '#2e7d32' }}>Congratulations!</div>
                         )}
-                        {app.status !== 'Rejected' && app.status !== 'Approved' && (
-                          <div>Being Processed</div>
+                        {app.status === 'Waiting for additional information' && (
+                          <button 
+                            className="primary-button" 
+                            style={{ padding: '4px 12px', fontSize: '0.8rem', marginTop: '4px' }}
+                            onClick={() => setProvideInfoAppId(app._id)}
+                          >
+                            Provide Missing Info
+                          </button>
+                        )}
+                        {app.status !== 'Rejected' && app.status !== 'Approved' && app.status !== 'Waiting for additional information' && app.status !== 'Withdrawn' && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div>Being Processed</div>
+                            <button 
+                              className="secondary-button" 
+                              style={{ padding: '4px 8px', fontSize: '0.75rem', marginTop: '4px', width: 'fit-content' }}
+                              onClick={() => handleWithdraw(app._id)}
+                            >
+                              Withdraw
+                            </button>
+                          </div>
+                        )}
+                        {app.status === 'Withdrawn' && (
+                          <div style={{ color: '#d32f2f' }}>Application Withdrawn</div>
                         )}
                       </div>
                     </td>
@@ -102,6 +135,14 @@ export default function StudentApplicationHistory() {
           </div>
         )}
       </div>
+
+      {provideInfoAppId && (
+        <ProvideInfoModal 
+          appId={provideInfoAppId}
+          onClose={() => setProvideInfoAppId(null)}
+          onRefresh={fetchApplications}
+        />
+      )}
     </div>
   )
 }

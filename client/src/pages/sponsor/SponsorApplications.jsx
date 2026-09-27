@@ -210,20 +210,23 @@ export default function SponsorApplications() {
               <div style={{ borderTop: '1px solid var(--color-paper-border)', paddingTop: '20px' }}>
                 <h4 style={{ marginBottom: '12px' }}>Make a Decision</h4>
                 <div className="field-group">
-                  <label>Rejection Reason (Required only if rejecting)</label>
+                  <label>Review Note (Required for Reject / Request Info)</label>
                   <input
                     type="text"
-                    placeholder="e.g. Does not meet minimum academic requirements"
+                    placeholder="e.g. Please provide your most recent transcript"
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
                   />
                 </div>
                 <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                  <button className="primary-button" style={{ background: '#d32f2f', color: '#fff', border: 'none' }} onClick={() => handleDecision(selectedApp._id, 'reject')}>
-                    Reject Application
+                  <button className="primary-button" style={{ background: '#d32f2f', color: '#fff', border: 'none', flex: 1 }} onClick={() => handleDecision(selectedApp._id, 'reject')}>
+                    Reject
                   </button>
-                  <button className="primary-button" style={{ background: '#2e7d32', color: '#fff', border: 'none' }} onClick={() => handleDecision(selectedApp._id, 'approve')}>
-                    Approve Application
+                  <button className="primary-button" style={{ background: '#f57c00', color: '#fff', border: 'none', flex: 1 }} onClick={() => handleDecision(selectedApp._id, 'request_info')}>
+                    Request Info
+                  </button>
+                  <button className="primary-button" style={{ background: '#2e7d32', color: '#fff', border: 'none', flex: 1 }} onClick={() => handleDecision(selectedApp._id, 'approve')}>
+                    Approve
                   </button>
                 </div>
               </div>
