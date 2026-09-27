@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function ApplicationFormWizard({ sponsorshipId, onSubmit, initialData = null }) {
   const [currentStep, setCurrentStep] = useState(1)
@@ -27,6 +27,33 @@ export default function ApplicationFormWizard({ sponsorshipId, onSubmit, initial
   )
 
   const totalSteps = 5
+
+  useEffect(() => {
+    if (!initialData) {
+      const savedDraft = localStorage.getItem(`draft_${sponsorshipId}`);
+      if (savedDraft) {
+        try {
+          const parsed = JSON.parse(savedDraft);
+          setFormData(prev => ({ ...prev, ...parsed }));
+        } catch (e) {
+          console.error("Failed to parse draft", e);
+        }
+      }
+    }
+  }, [sponsorshipId, initialData]);
+
+  const handleSaveDraft = () => {
+    const draftToSave = {
+      school: formData.school,
+      year: formData.year,
+      major: formData.major,
+      gpa: formData.gpa,
+      motivation: formData.motivation,
+      goals: formData.goals,
+    };
+    localStorage.setItem(`draft_${sponsorshipId}`, JSON.stringify(draftToSave));
+    alert('Draft saved successfully! You can leave this page and come back later.');
+  }
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -59,9 +86,9 @@ export default function ApplicationFormWizard({ sponsorshipId, onSubmit, initial
   const canProceedToNext = () => {
     switch (currentStep) {
       case 1:
-        return formData.school && formData.major && formData.gpa
+        return formData.school.trim() && formData.major.trim() && formData.gpa.trim()
       case 2:
-        return formData.motivation && formData.goals
+        return formData.motivation.trim() && formData.goals.trim()
       case 3:
         return formData.idDocument && formData.idType
       case 4:
@@ -340,15 +367,25 @@ export default function ApplicationFormWizard({ sponsorshipId, onSubmit, initial
         )}
 
         {/* Navigation Buttons */}
-        <div className="form-navigation">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => setCurrentStep(prev => prev - 1)}
-            disabled={currentStep === 1}
-          >
-            ← Previous
-          </button>
+        <div className="form-navigation" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setCurrentStep(prev => prev - 1)}
+              disabled={currentStep === 1}
+              style={{ marginRight: "10px" }}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={handleSaveDraft}
+            >
+              Save as Draft
+            </button>
+          </div>
 
           {currentStep < totalSteps ? (
             <button
@@ -373,3 +410,4 @@ export default function ApplicationFormWizard({ sponsorshipId, onSubmit, initial
     </div>
   )
 }
+
