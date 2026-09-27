@@ -1,6 +1,7 @@
 import Application from '../models/Application.js';
 import FraudResult from '../models/FraudResult.js';
 import StudentProfile from '../models/StudentProfile.js';
+import { createNotification } from './notificationService.js';
 
 // --- FRAUD RULES ---
 
@@ -8,7 +9,7 @@ const checkAcademicInconsistency = async (application, studentProfile) => {
   // If the student provided academic info in the application that drastically
   // differs from their latest profile info, flag it.
   
-  if (!application.academicInfoSnapshot || !studentProfile.academicRecords || studentProfile.academicRecords.length === 0) {
+  if (!application.academicInfoSnapshot || !studentProfile || !studentProfile.academicRecords || studentProfile.academicRecords.length === 0) {
     return null; // Not enough data to compare
   }
 
@@ -61,7 +62,7 @@ const checkDuplicateApplications = async (application) => {
 
 export const runFraudDetection = async (applicationId) => {
   try {
-    const application = await Application.findById(applicationId);
+    const application = await Application.findById(applicationId).populate('sponsorship');
     if (!application) throw new Error('Application not found');
 
     const studentProfile = await StudentProfile.findOne({ user: application.student });
@@ -105,6 +106,15 @@ export const runFraudDetection = async (applicationId) => {
     } else {
       application.fraudReviewStatus = 'Passed';
       application.status = 'Under Sponsor review'; // Passed screening, goes directly to Sponsor
+      
+      if (application.sponsorship && application.sponsorship.sponsor) {
+        await createNotification(
+          application.sponsorship.sponsor, 
+          'New Application Received', 
+          `A new application for ${application.sponsorship.title} has passed automated screening and is ready for your review.`, 
+          application._id
+        );
+      }
     }
 
     await application.save();
