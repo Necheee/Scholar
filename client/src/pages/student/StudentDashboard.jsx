@@ -14,6 +14,7 @@ export default function StudentDashboard() {
   })
   
   const [activeApp, setActiveApp] = useState(null)
+  const [activeGrant, setActiveGrant] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -29,10 +30,12 @@ export default function StudentDashboard() {
         const applications = applicationsRes.data
 
         const activeApplication = applications.find(a => 
-          a.status !== 'Rejected' && a.status !== 'Approved'
+          a.status !== 'Rejected' && a.status !== 'Approved' && a.status !== 'Grant Disbursed' && a.status !== 'Withdrawn'
         )
+
+        const currentFundedGrant = applications.find(a => a.fundingStatus?.isFundedActive)
         
-        const awarded = applications.filter(a => a.status === 'Approved').length
+        const awarded = applications.filter(a => a.status === 'Approved' || a.status === 'Grant Disbursed').length
 
         setStats({
           activeApplications: activeApplication ? 1 : 0,
@@ -41,6 +44,7 @@ export default function StudentDashboard() {
         })
 
         setActiveApp(activeApplication || null)
+        setActiveGrant(currentFundedGrant || null)
       } catch (error) {
         console.error('Failed to load dashboard data:', error)
       } finally {
@@ -91,9 +95,6 @@ export default function StudentDashboard() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '1.2rem' }}>{activeApp.sponsorship?.title}</h4>
-                {/* <p style={{ margin: 0, color: 'var(--color-ink-soft)', fontSize: '0.9rem' }}>
-                  {activeApp.sponsorship?.sponsor?.name}
-                </p> */}
               </div>
               <span className="status-badge status-active">
                 {activeApp.status}
@@ -101,6 +102,10 @@ export default function StudentDashboard() {
             </div>
             
             <div style={{ background: 'var(--color-paper-border)', padding: '16px', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.9rem' }}>
+                <span style={{ color: 'var(--color-ink-soft)' }}>Tuition Grant Value:</span>
+                <strong style={{ color: '#166534', fontWeight: 700 }}>₦{(activeApp.sponsorship?.grantAmount || 250000).toLocaleString()}</strong>
+              </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.9rem' }}>
                 <span style={{ color: 'var(--color-ink-soft)' }}>Submitted on:</span>
                 <strong>{new Date(activeApp.createdAt).toLocaleDateString()}</strong>
@@ -122,6 +127,60 @@ export default function StudentDashboard() {
             >
               View Full History
             </button>
+          </div>
+        ) : activeGrant ? (
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', borderTop: '4px solid #16a34a' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h4 style={{ margin: '0 0 6px 0', fontSize: '1.2rem', color: '#166534' }}>
+                  ✓ {activeGrant.sponsorship?.title}
+                </h4>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>
+                  Active Educational Scholarship Grant
+                </p>
+              </div>
+              <span className="status-badge status-active">
+                Funded & Active
+              </span>
+            </div>
+
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '18px', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '0.9rem' }}>
+                <span style={{ color: 'var(--color-ink-soft)' }}>Grant Disbursed:</span>
+                <strong style={{ color: '#166534', fontWeight: 700, fontSize: '1.05rem' }}>
+                  ₦{(activeGrant.sponsorship?.grantAmount || 250000).toLocaleString()}
+                </strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '0.9rem' }}>
+                <span style={{ color: 'var(--color-ink-soft)' }}>Funded Duration:</span>
+                <strong>{activeGrant.sponsorship?.duration || '1 Academic Session'}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '0.9rem' }}>
+                <span style={{ color: 'var(--color-ink-soft)' }}>Disbursed On:</span>
+                <strong>{new Date(activeGrant.fundingStatus?.startDate || activeGrant.updatedAt).toLocaleDateString()}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px dashed #bbf7d0', fontSize: '0.9rem' }}>
+                <span style={{ color: '#166534', fontWeight: 600 }}>Next Eligible Application Date:</span>
+                <strong style={{ color: '#15803d' }}>
+                  {new Date(activeGrant.fundingStatus?.endDate).toLocaleDateString()} ({activeGrant.fundingStatus?.daysRemaining} days left)
+                </strong>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                className="secondary-button" 
+                onClick={() => navigate('/student/history')}
+              >
+                View History & Receipt
+              </button>
+              <button 
+                className="primary-button" 
+                onClick={() => navigate('/student/sponsorships')}
+              >
+                Browse Upcoming Opportunities
+              </button>
+            </div>
           </div>
         ) : (
           <div className="card" style={{ textAlign: 'center', padding: '40px' }}>

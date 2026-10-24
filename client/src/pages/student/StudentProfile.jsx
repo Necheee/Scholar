@@ -1,28 +1,62 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import api from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
 
+const LEVEL_LABELS = {
+  '100-level': '100 Level',
+  '200-level': '200 Level',
+  '300-level': '300 Level',
+  '400-level': '400 Level',
+  '500-level': '500 Level',
+  '600-level': '600 Level',
+}
+
+const formatLevel = (val) => LEVEL_LABELS[val] || val
+
 export default function StudentProfile() {
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [securityData, setSecurityData] = useState({ currentPassword: '', newPassword: '' })
   const [isEditing, setIsEditing] = useState(false)
   const [isSeeking, setIsSeeking] = useState(true)
 
-  const [profile, setProfile] = useState({
-    name: 'Alex Johnson',
-    email: 'alex@example.com',
-    phone: '(555) 123-4567',
-    school: 'Stanford University',
-    major: 'Computer Science',
-    year: 'Junior',
-    gpa: '3.85',
-    bio: 'Passionate about solving real-world problems through technology. Interested in machine learning and startup ecosystems.',
-    location: 'San Francisco, CA',
-  })
+  const getInitialProfile = () => {
+    const isDavid = user?.name?.toLowerCase().includes('david') || user?.email?.toLowerCase().includes('david')
+    if (isDavid) {
+      return {
+        name: user?.name || 'David Adeleke',
+        email: user?.email || 'david.adeleke@scholar.edu',
+        phone: '(555) 345-6789',
+        school: 'Covenant University',
+        major: 'Electrical Electronics',
+        year: '400-level',
+        gpa: '3.85',
+        bio: 'Hardware researcher specializing in low-power LoRaWAN networks for precision agriculture.',
+        location: 'Ogun State, Nigeria',
+      }
+    }
+    return {
+      name: user?.name || 'Alex Johnson',
+      email: user?.email || 'alex@example.com',
+      phone: '(555) 123-4567',
+      school: 'University of Ibadan',
+      major: 'Computer Science',
+      year: '300-level',
+      gpa: '3.85',
+      bio: 'Passionate about distributed systems and cloud infrastructure. Ranked in the top 3% of the department.',
+      location: 'Ibadan, Nigeria',
+    }
+  }
 
-  const [editData, setEditData] = useState(profile)
+  const [profile, setProfile] = useState(getInitialProfile)
+  const [editData, setEditData] = useState(getInitialProfile)
+
+  useEffect(() => {
+    const updated = getInitialProfile()
+    setProfile(updated)
+    setEditData(updated)
+  }, [user])
 
   const handleEditChange = (field, value) => {
     setEditData(prev => ({
@@ -76,7 +110,7 @@ export default function StudentProfile() {
         </div>
         <div className="profile-title">
           <h2>{profile.name}</h2>
-          <p className="profile-meta">{profile.major} • {profile.year} • {profile.school}</p>
+          <p className="profile-meta">{profile.major} • {formatLevel(profile.year)} • {profile.school}</p>
         </div>
         {!isEditing && (
           <button
@@ -171,16 +205,17 @@ export default function StudentProfile() {
                 />
               </div>
               <div className="field-group">
-                <label>Year of Study</label>
+                <label>Year / Level of Study</label>
                 <select
                   value={editData.year}
                   onChange={(e) => handleEditChange('year', e.target.value)}
                 >
-                  <option value="Freshman">Freshman</option>
-                  <option value="Sophomore">Sophomore</option>
-                  <option value="Junior">Junior</option>
-                  <option value="Senior">Senior</option>
-                  <option value="Graduate">Graduate</option>
+                  <option value="100-level">100 Level</option>
+                  <option value="200-level">200 Level</option>
+                  <option value="300-level">300 Level</option>
+                  <option value="400-level">400 Level</option>
+                  <option value="500-level">500 Level</option>
+                  <option value="600-level">600 Level</option>
                 </select>
               </div>
               <div className="field-group">
@@ -206,8 +241,8 @@ export default function StudentProfile() {
                 <span className="value">{profile.major}</span>
               </div>
               <div className="info-item">
-                <span className="label">Year</span>
-                <span className="value">{profile.year}</span>
+                <span className="label">Level</span>
+                <span className="value">{formatLevel(profile.year)}</span>
               </div>
               <div className="info-item">
                 <span className="label">GPA</span>

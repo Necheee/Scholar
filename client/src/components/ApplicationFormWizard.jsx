@@ -6,7 +6,7 @@ export default function ApplicationFormWizard({ sponsorshipId, onSubmit, initial
     initialData || {
       // Step 1: Academic Info
       school: '',
-      year: 'freshman',
+      year: '100-level',
       major: '',
       gpa: '',
       
@@ -158,11 +158,12 @@ export default function ApplicationFormWizard({ sponsorshipId, onSubmit, initial
                 value={formData.year}
                 onChange={(e) => handleInputChange('year', e.target.value)}
               >
-                <option value="freshman">Freshman</option>
-                <option value="sophomore">Sophomore</option>
-                <option value="junior">Junior</option>
-                <option value="senior">Senior</option>
-                <option value="graduate">Graduate</option>
+                <option value="100-level">100 Level</option>
+                <option value="200-level">200 Level</option>
+                <option value="300-level">300 Level</option>
+                <option value="400-level">400 Level</option>
+                <option value="500-level">500 Level</option>
+                <option value="600-level">600 Level</option>
               </select>
             </div>
 
