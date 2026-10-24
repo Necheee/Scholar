@@ -296,6 +296,18 @@ export default function PaystackDisbursementModal({ application, onClose, onSucc
                     </div>
                   </div>
 
+                  {/* Test Mode Quick Reference Helper */}
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 14px', marginBottom: '20px', fontSize: '0.82rem' }}>
+                    <div style={{ fontWeight: 700, color: '#166534', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>🧪</span> Paystack Test Credentials (Guaranteed Success):
+                    </div>
+                    <div style={{ color: '#15803d', lineHeight: '1.5' }}>
+                      • <strong>Card Number:</strong> <code style={{ background: '#dcfce7', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>4084 0840 8408 4081</code><br />
+                      • <strong>Expiry / CVV:</strong> <code style={{ background: '#dcfce7', padding: '2px 4px', borderRadius: '4px' }}>12/30</code> &bull; CVV: <code style={{ background: '#dcfce7', padding: '2px 4px', borderRadius: '4px' }}>408</code> &bull; OTP: <code style={{ background: '#dcfce7', padding: '2px 4px', borderRadius: '4px' }}>123456</code><br />
+                      • <strong>Bank Transfer:</strong> Select <em>Transfer</em> and click <em>"I have sent the money"</em>.
+                    </div>
+                  </div>
+
                   {/* Buttons */}
                   <div style={{ display: 'flex', gap: '12px' }}>
                     <button
