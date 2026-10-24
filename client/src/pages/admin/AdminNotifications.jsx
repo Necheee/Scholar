@@ -41,13 +41,14 @@ export default function AdminNotifications() {
 
   const filteredNotifications = notifications.filter((notif) => {
     if (filter === 'Unread') return !notif.isRead
+    if (filter === 'Read') return notif.isRead
     return true
   })
 
   if (isLoading) return <div>Loading notifications...</div>
 
   return (
-    <div className="notifications-page">
+    <div className="notifications-page" style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '40px' }}>
       <div className="section-header" style={{ marginBottom: '24px' }}>
         <div>
           <h2>Notifications</h2>
@@ -58,25 +59,25 @@ export default function AdminNotifications() {
         </button>
       </div>
 
-      <div className="filters-row" style={{ marginBottom: '24px' }}>
-        <button
-          className={filter === 'All' ? 'active-filter' : 'inactive-filter'}
-          onClick={() => setFilter('All')}
-        >
-          All
-        </button>
-        <button
-          className={filter === 'Unread' ? 'active-filter' : 'inactive-filter'}
-          onClick={() => setFilter('Unread')}
-        >
-          Unread
-        </button>
+      <div className="filters-row" style={{ display: 'flex', gap: '20px', marginBottom: '24px' }}>
+        <div className="field-group" style={{ minWidth: '220px', marginBottom: 0 }}>
+          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.9rem' }}>Filter Notifications</label>
+          <select 
+            value={filter} 
+            onChange={(e) => setFilter(e.target.value)} 
+            style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--color-border)', background: '#fff', fontSize: '0.92rem' }}
+          >
+            <option value="All">All Notifications</option>
+            <option value="Unread">Unread</option>
+            <option value="Read">Read</option>
+          </select>
+        </div>
       </div>
 
       <div className="notifications-list" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {filteredNotifications.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '32px', color: 'var(--color-ink-soft)' }}>
-            <p>You have no {filter.toLowerCase()} notifications.</p>
+            <p>You have no {filter === 'All' ? '' : filter.toLowerCase() + ' '}notifications.</p>
           </div>
         ) : (
           filteredNotifications.map((notif) => (
