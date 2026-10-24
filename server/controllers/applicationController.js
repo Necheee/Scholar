@@ -1,8 +1,10 @@
 import Application from '../models/Application.js';
 import Sponsorship from '../models/Sponsorship.js';
+import FraudResult from '../models/FraudResult.js';
 import { runFraudDetection } from '../services/fraudDetectionService.js';
 import { createNotification } from '../services/notificationService.js';
 import { logActivity } from '../services/activityService.js';
+import { getFundingStatus } from '../utils/durationHelper.js';
 
 // @desc    Submit a new application
 // @route   POST /api/applications
@@ -11,15 +13,41 @@ export const submitApplication = async (req, res, next) => {
   try {
     const { sponsorshipId, academicInfoSnapshot, reasonForRequesting, documents } = req.body;
 
-    // One Active Application Rule
-    const activeApplication = await Application.findOne({
+    // 1. One Active In-Review Application Rule
+    const activeReviewApp = await Application.findOne({
       student: req.user._id,
-      status: { $ne: 'Rejected' }
-    });
+      status: { 
+        $in: [
+          'Draft',
+          'Submitted',
+          'Under screening',
+          'Under Admin review',
+          'Waiting for additional information',
+          'Under Sponsor review'
+        ] 
+      }
+    }).populate('sponsorship', 'title');
 
-    if (activeApplication) {
+    if (activeReviewApp) {
       res.status(400);
-      throw new Error('You already have an active application process. You cannot submit another.');
+      throw new Error(`You already have an active application under review for "${activeReviewApp.sponsorship?.title || 'an opportunity'}". You cannot submit another application until a decision is reached.`);
+    }
+
+    // 2. Duration-based Active Scholarship Rule
+    const fundedApps = await Application.find({
+      student: req.user._id,
+      status: { $in: ['Grant Disbursed', 'Approved'] }
+    }).populate('sponsorship', 'title duration');
+
+    for (const fundedApp of fundedApps) {
+      const funding = getFundingStatus(fundedApp);
+      if (funding.isFundedActive) {
+        res.status(400);
+        const daysText = `${funding.daysRemaining} day${funding.daysRemaining === 1 ? '' : 's'}`;
+        throw new Error(
+          `You are currently receiving funding under "${fundedApp.sponsorship?.title}" (${fundedApp.sponsorship?.duration || '1 Academic Session'}). Your grant period concludes on ${funding.endDate.toLocaleDateString()} (${daysText} remaining). You will be eligible to apply for another scholarship once this funded period concludes.`
+        );
+      }
     }
 
     const sponsorship = await Sponsorship.findById(sponsorshipId);
@@ -74,8 +102,16 @@ export const submitApplication = async (req, res, next) => {
 export const getMyApplications = async (req, res, next) => {
   try {
     const applications = await Application.find({ student: req.user._id })
-      .populate('sponsorship', 'title sponsor applicationDeadline');
-    res.json(applications);
+      .populate('sponsorship', 'title sponsor applicationDeadline grantAmount duration')
+      .lean();
+
+    // Attach computed duration-based funding status
+    const appsWithFunding = applications.map(app => ({
+      ...app,
+      fundingStatus: getFundingStatus(app)
+    }));
+
+    res.json(appsWithFunding);
   } catch (error) {
     next(error);
   }
@@ -90,13 +126,13 @@ export const getSponsorApplications = async (req, res, next) => {
     const sponsorships = await Sponsorship.find({ sponsor: req.user._id });
     const sponsorshipIds = sponsorships.map(s => s._id);
 
-    // 2. Find all applications for those sponsorships that are ready for sponsor review
+    // 2. Find all applications for those sponsorships that are ready for sponsor review or processed
     const applications = await Application.find({
       sponsorship: { $in: sponsorshipIds },
-      status: { $in: ['Under Sponsor review', 'Approved', 'Rejected'] }
+      status: { $in: ['Under Sponsor review', 'Approved', 'Grant Disbursed', 'Waiting for additional information', 'Rejected'] }
     })
       .populate('student', 'name email')
-      .populate('sponsorship', 'title');
+      .populate('sponsorship', 'title grantAmount duration applicationDeadline');
 
     // We also need the student's profile for institutional info, but we can do a secondary lookup
     // or just let the frontend fetch student profile details when viewing an individual app,
@@ -115,7 +151,7 @@ export const getApplicationById = async (req, res, next) => {
   try {
     const application = await Application.findById(req.params.id)
       .populate('student', 'name email')
-      .populate('sponsorship', 'title sponsor');
+      .populate('sponsorship', 'title sponsor grantAmount duration applicationDeadline');
 
     if (!application) {
       res.status(404);
@@ -133,7 +169,7 @@ export const getApplicationById = async (req, res, next) => {
     }
 
     // Sponsors should only see applications that are 'Under Sponsor review' or higher
-    if (isSponsor && !['Under Sponsor review', 'Approved', 'Rejected'].includes(application.status)) {
+    if (isSponsor && !['Under Sponsor review', 'Approved', 'Grant Disbursed', 'Waiting for additional information', 'Rejected'].includes(application.status)) {
        res.status(403);
        throw new Error('Application is not yet ready for sponsor review');
     }
@@ -149,13 +185,23 @@ export const getApplicationById = async (req, res, next) => {
 // @access  Private/Admin
 export const getFlaggedApplications = async (req, res, next) => {
   try {
-    // Admin needs applications that are under their review due to flags
     const flaggedApplications = await Application.find({ status: 'Under Admin review', fraudReviewStatus: 'Flagged' })
-      .populate('student', 'name')
-      .populate('sponsorship', 'title');
+      .populate('student', 'name email')
+      .populate('sponsorship', 'title')
+      .lean();
       
-    // We could also join the FraudResult model here, or have a separate endpoint
-    res.json(flaggedApplications);
+    const appIds = flaggedApplications.map(app => app._id);
+    const fraudResults = await FraudResult.find({ application: { $in: appIds } }).lean();
+
+    const result = flaggedApplications.map(app => {
+      const fr = fraudResults.find(f => f.application.toString() === app._id.toString());
+      return {
+        ...app,
+        fraudResult: fr || null
+      };
+    });
+
+    res.json(result);
   } catch (error) {
     next(error);
   }
@@ -356,7 +402,18 @@ export const withdrawApplication = async (req, res, next) => {
     application.status = 'Withdrawn';
     await application.save();
 
-    
+    // Unlock sponsorship if no other active applications remain
+    if (application.sponsorship) {
+      const otherActiveApps = await Application.countDocuments({
+        sponsorship: application.sponsorship,
+        _id: { $ne: application._id },
+        status: { $nin: ['Rejected', 'Withdrawn'] }
+      });
+      if (otherActiveApps === 0) {
+        await Sponsorship.findByIdAndUpdate(application.sponsorship, { isLocked: false });
+      }
+    }
+
     await logActivity(
       'Application Withdrawn',
       'Student withdrew their application.',
