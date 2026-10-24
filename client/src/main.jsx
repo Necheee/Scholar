@@ -22,12 +22,15 @@ import SponsorApplications from './pages/sponsor/SponsorApplications.jsx'
 import SponsorStudentsDirectory from './pages/sponsor/SponsorStudentsDirectory.jsx'
 import SponsorNotifications from './pages/sponsor/SponsorNotifications.jsx'
 import SponsorProfile from './pages/sponsor/SponsorProfile.jsx'
+import SponsorTransactions from './pages/sponsor/SponsorTransactions.jsx'
 import AdminDashboard from './pages/admin/AdminDashboard.jsx'
 import AdminFlaggedApplications from './pages/admin/AdminFlaggedApplications.jsx'
 import AdminInformationRequests from './pages/admin/AdminInformationRequests.jsx'
 import AdminActivity from './pages/admin/AdminActivity.jsx'
 import AdminNotifications from './pages/admin/AdminNotifications.jsx'
 import AdminProfile from './pages/admin/AdminProfile.jsx'
+import AdminUsers from './pages/admin/AdminUsers.jsx'
+import AdminReport from './pages/admin/AdminReport.jsx'
 
 export function App() {
   return (
@@ -60,15 +63,17 @@ export function App() {
             <Route path="opportunities" element={<SponsorOpportunities />} />
             <Route path="applications" element={<SponsorApplications />} />
             <Route path="students" element={<SponsorStudentsDirectory />} />
+            <Route path="transactions" element={<SponsorTransactions />} />
             <Route path="notifications" element={<SponsorNotifications />} />
             <Route path="profile" element={<SponsorProfile />} />
             <Route path="*" element={<Navigate to="/sponsor" replace />} />
           </Route>
-          <Route path="/admin/*" element={<ProtectedRoute requiredRole="admin"><AppShell role="admin" /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AppShell role="admin" /></ProtectedRoute>}>
             <Route index element={<AdminDashboard />} />
             <Route path="flagged" element={<AdminFlaggedApplications />} />
             <Route path="requests" element={<AdminInformationRequests />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="report" element={<AdminReport />} />
             <Route path="activity" element={<AdminActivity />} />
             <Route path="notifications" element={<AdminNotifications />} />
             <Route path="profile" element={<AdminProfile />} />
