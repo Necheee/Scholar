@@ -1,5 +1,6 @@
 import cloudinary from '../config/cloudinary.js';
 import streamifier from 'streamifier';
+import crypto from 'crypto';
 
 // @desc    Upload document to Cloudinary
 // @route   POST /api/upload
@@ -10,6 +11,10 @@ export const uploadDocument = async (req, res, next) => {
       res.status(400);
       throw new Error('No file uploaded');
     }
+
+    // Compute SHA-256 cryptographic hash of the uploaded document buffer
+    // Satisfies Chapter 3.4.5 Document Table file_hash attribute & fraud detection
+    const fileHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
 
     // Determine the folder based on the student's ID for better organization
     const folder = `scholar/students/${req.user._id}`;
@@ -41,6 +46,7 @@ export const uploadDocument = async (req, res, next) => {
       url: result.secure_url,
       cloudinaryId: result.public_id,
       format: result.format,
+      fileHash,
     });
   } catch (error) {
     next(error);

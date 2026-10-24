@@ -28,7 +28,8 @@ export default function StudentApplicationPage() {
     })
     return {
       cloudinaryUrl: data.url,
-      cloudinaryId: data.cloudinaryId
+      cloudinaryId: data.cloudinaryId,
+      fileHash: data.fileHash,
     }
   }
 
