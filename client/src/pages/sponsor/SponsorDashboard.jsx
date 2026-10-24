@@ -10,7 +10,9 @@ export default function SponsorDashboard() {
   const [stats, setStats] = useState({
     activeSponsorships: 0,
     applicationsToReview: 0,
-    awardedStudents: 0
+    awardedStudents: 0,
+    totalDisbursed: 0,
+    disbursedCount: 0,
   })
   
   const [pendingReviews, setPendingReviews] = useState([])
@@ -30,12 +32,16 @@ export default function SponsorDashboard() {
 
         const activeSponsorships = sponsorships.filter(s => s.status === 'Active').length
         const appsToReview = applications.filter(a => a.status === 'Under Sponsor review')
-        const awardedApps = applications.filter(a => a.status === 'Approved').length
+        const awardedApps = applications.filter(a => a.status === 'Approved' || a.status === 'Grant Disbursed')
+        const disbursedApps = applications.filter(a => a.status === 'Grant Disbursed')
+        const totalDisbursed = disbursedApps.reduce((sum, a) => sum + (a.sponsorship?.grantAmount || 250000), 0)
 
         setStats({
           activeSponsorships,
           applicationsToReview: appsToReview.length,
-          awardedStudents: awardedApps
+          awardedStudents: awardedApps.length,
+          totalDisbursed,
+          disbursedCount: disbursedApps.length,
         })
 
         // Get top 3 most recent apps for review
@@ -59,15 +65,23 @@ export default function SponsorDashboard() {
           <h2>Welcome, {user?.name || 'Sponsor'}</h2>
           <p className="section-meta">Overview of your funding programs and applicant pipeline.</p>
         </div>
-        <button 
-          className="primary-button" 
-          onClick={() => navigate('/sponsor/opportunities')}
-        >
-          Manage Opportunities
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button 
+            className="secondary-button" 
+            onClick={() => navigate('/sponsor/transactions')}
+          >
+            Disbursement Ledger
+          </button>
+          <button 
+            className="primary-button" 
+            onClick={() => navigate('/sponsor/opportunities')}
+          >
+            Manage Opportunities
+          </button>
+        </div>
       </div>
 
-      <div className="stats-grid">
+      <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
         <div className="stat-card" style={{ borderTop: '4px solid #3b82f6' }}>
           <div className="stat-value">{stats.activeSponsorships}</div>
           <div className="stat-label">Active Sponsorships</div>
@@ -79,6 +93,15 @@ export default function SponsorDashboard() {
         <div className="stat-card" style={{ borderTop: '4px solid #22c55e' }}>
           <div className="stat-value">{stats.awardedStudents}</div>
           <div className="stat-label">Awarded Students</div>
+        </div>
+        <div 
+          className="stat-card" 
+          style={{ borderTop: '4px solid #0ba4db', cursor: 'pointer' }}
+          onClick={() => navigate('/sponsor/transactions')}
+          title="Click to view disbursement ledger"
+        >
+          <div className="stat-value" style={{ fontSize: '1.6rem', color: '#0369a1' }}>₦{stats.totalDisbursed.toLocaleString()}</div>
+          <div className="stat-label">Total Disbursed ({stats.disbursedCount} Grants) →</div>
         </div>
       </div>
 
@@ -109,17 +132,17 @@ export default function SponsorDashboard() {
                 {pendingReviews.map((app) => (
                   <tr key={app._id}>
                     <td>
-                      <strong>{app.student.name}</strong>
+                      <strong>{app.student?.name || 'Applicant'}</strong>
                       <div style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>
                         {app.academicInfoSnapshot?.institution || 'Institution N/A'}
                       </div>
                     </td>
-                    <td>{app.sponsorship.title}</td>
+                    <td>{app.sponsorship?.title || 'Opportunity'}</td>
                     <td>{new Date(app.createdAt).toLocaleDateString()}</td>
                     <td>
                       <button 
                         className="secondary-button"
-                        onClick={() => navigate('/sponsor/applications', { state: { sponsorshipId: app.sponsorship._id } })}
+                        onClick={() => navigate('/sponsor/applications', { state: { sponsorshipId: app.sponsorship?._id } })}
                       >
                         Review
                       </button>
