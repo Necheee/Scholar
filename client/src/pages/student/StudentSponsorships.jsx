@@ -8,17 +8,28 @@ export default function StudentSponsorships() {
     search: '',
   })
   const [sponsorships, setSponsorships] = useState([])
+  const [activeGrant, setActiveGrant] = useState(null)
+  const [activeReviewApp, setActiveReviewApp] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    fetchSponsorships()
+    fetchData()
   }, [])
 
-  async function fetchSponsorships() {
+  async function fetchData() {
     try {
       setIsLoading(true)
-      const { data } = await api.get('/sponsorships')
-      setSponsorships(data)
+      const [sponsorshipsRes, appsRes] = await Promise.all([
+        api.get('/sponsorships'),
+        api.get('/applications/my-applications')
+      ])
+      setSponsorships(sponsorshipsRes.data)
+      const currentGrant = appsRes.data.find(a => a.fundingStatus?.isFundedActive)
+      const pendingApp = appsRes.data.find(a => 
+        ['Draft', 'Submitted', 'Under screening', 'Under Admin review', 'Waiting for additional information', 'Under Sponsor review'].includes(a.status)
+      )
+      setActiveGrant(currentGrant || null)
+      setActiveReviewApp(pendingApp || null)
     } catch (error) {
       console.error('Failed to fetch sponsorships:', error)
     } finally {
@@ -49,6 +60,29 @@ export default function StudentSponsorships() {
           </p>
         </div>
       </div>
+
+      {activeGrant && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '16px 20px', borderRadius: '10px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <span style={{ fontSize: '1.6rem' }}>🎓</span>
+          <div>
+            <strong style={{ color: '#166534', fontSize: '1rem', display: 'block', marginBottom: '2px' }}>
+              Active Scholarship Grant: {activeGrant.sponsorship?.title}
+            </strong>
+            <p style={{ margin: 0, fontSize: '0.88rem', color: '#15803d', lineHeight: 1.4 }}>
+              Your current scholarship funding is active for <strong>{activeGrant.sponsorship?.duration || '1 Academic Session'}</strong> (ends on <strong>{new Date(activeGrant.fundingStatus?.endDate).toLocaleDateString()}</strong>, {activeGrant.fundingStatus?.daysRemaining} days remaining). You can browse open opportunities below to plan your next application.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {activeReviewApp && !activeGrant && (
+        <div style={{ background: '#fefce8', border: '1px solid #fef08a', padding: '14px 18px', borderRadius: '10px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '1.4rem' }}>⏳</span>
+          <div style={{ fontSize: '0.88rem', color: '#854d0e' }}>
+            You have an active application under review for <strong>{activeReviewApp.sponsorship?.title}</strong> ({activeReviewApp.status}). You can browse sponsorships, but new applications are locked until a decision is issued.
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: '24px' }}>
         <div className="field-group" style={{ marginBottom: 0 }}>
@@ -85,7 +119,11 @@ export default function StudentSponsorships() {
               </p>
 
               <div style={{ borderTop: '1px solid var(--color-paper-border)', paddingTop: '16px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--color-ink-soft)' }}>Tuition Grant</div>
+                    <div style={{ fontWeight: 700, color: '#166534', fontSize: '0.95rem' }}>₦{(opp.grantAmount || 250000).toLocaleString()}</div>
+                  </div>
                   <div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--color-ink-soft)' }}>Duration</div>
                     <div style={{ fontWeight: 600 }}>{opp.duration || 'N/A'}</div>
@@ -96,13 +134,33 @@ export default function StudentSponsorships() {
                   </div>
                 </div>
                 
-                <button
-                  className="primary-button"
-                  style={{ width: '100%' }}
-                  onClick={() => navigate(`/student/application/${opp._id}`, { state: { sponsorship: opp } })}
-                >
-                  Apply Now
-                </button>
+                {activeGrant ? (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    style={{ width: '100%', borderColor: '#86efac', color: '#166534', background: '#f0fdf4', fontWeight: 600, fontSize: '0.88rem' }}
+                    onClick={() => alert(`You are currently funded under "${activeGrant.sponsorship?.title}" until ${new Date(activeGrant.fundingStatus?.endDate).toLocaleDateString()} (${activeGrant.fundingStatus?.daysRemaining} days left). You will be eligible to submit your next application once this period concludes.`)}
+                  >
+                    ✓ Funded (Eligible {new Date(activeGrant.fundingStatus?.endDate).toLocaleDateString()})
+                  </button>
+                ) : activeReviewApp ? (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    style={{ width: '100%', borderColor: '#fde047', color: '#854d0e', background: '#fefce8', fontWeight: 600, fontSize: '0.88rem' }}
+                    onClick={() => navigate('/student/history')}
+                  >
+                    Application in Review →
+                  </button>
+                ) : (
+                  <button
+                    className="primary-button"
+                    style={{ width: '100%' }}
+                    onClick={() => navigate(`/student/application/${opp._id}`, { state: { sponsorship: opp } })}
+                  >
+                    Apply Now
+                  </button>
+                )}
               </div>
             </div>
           ))

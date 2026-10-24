@@ -33,6 +33,10 @@ const sponsorshipSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  grantAmount: {
+    type: Number,
+    default: 250000, // e.g. ₦250,000 tuition grant
+  },
   isLocked: {
     type: Boolean,
     default: false, // Becomes true after the first application is received

@@ -15,6 +15,7 @@ export const createSponsorship = async (req, res, next) => {
       requiredDocuments,
       applicationDeadline,
       duration,
+      grantAmount,
     } = req.body;
 
     const sponsorship = await Sponsorship.create({
@@ -26,6 +27,7 @@ export const createSponsorship = async (req, res, next) => {
       requiredDocuments,
       applicationDeadline,
       duration,
+      grantAmount: grantAmount ? Number(grantAmount) : 250000,
     });
 
     await logActivity(
@@ -42,12 +44,22 @@ export const createSponsorship = async (req, res, next) => {
   }
 };
 
-// @desc    Get all active sponsorships
+// @desc    Get sponsorships (scoped by role: Sponsor sees own, Student sees active, Admin sees all)
 // @route   GET /api/sponsorships
-// @access  Public or Private (Students/Sponsors)
+// @access  Private (Students/Sponsors/Admin)
 export const getSponsorships = async (req, res, next) => {
   try {
-    let sponsorships = await Sponsorship.find({ status: 'Active' }).populate('sponsor', 'name');
+    let query = { status: 'Active' };
+
+    if (req.user && req.user.role === 'Sponsor') {
+      // Sponsors should see all sponsorships they have created
+      query = { sponsor: req.user._id };
+    } else if (req.user && req.user.role === 'Admin') {
+      // Admins see all sponsorships
+      query = {};
+    }
+
+    let sponsorships = await Sponsorship.find(query).populate('sponsor', 'name email');
     
     // If a student is fetching the list, hide the sponsorships they have already applied to
     if (req.user && req.user.role === 'Student') {

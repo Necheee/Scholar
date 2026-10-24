@@ -15,6 +15,7 @@ export default function SponsorOpportunities() {
     title: '',
     duration: '1 Academic Session',
     applicationDeadline: '',
+    grantAmount: 250000,
     description: '',
     eligibilityRequirements: '',
     academicRequirements: '',
@@ -52,6 +53,7 @@ export default function SponsorOpportunities() {
     try {
       const payload = {
         ...formData,
+        grantAmount: Number(formData.grantAmount) || 250000,
         requiredDocuments: formData.requiredDocuments.split(',').map((s) => s.trim()),
       }
       
@@ -63,6 +65,7 @@ export default function SponsorOpportunities() {
         title: '',
         duration: '1 Academic Session',
         applicationDeadline: '',
+        grantAmount: 250000,
         description: '',
         eligibilityRequirements: '',
         academicRequirements: '',
@@ -83,7 +86,8 @@ export default function SponsorOpportunities() {
       const { data } = await api.put(`/sponsorships/${editingOpportunity._id}`, {
         title: editingOpportunity.title,
         description: editingOpportunity.description,
-        applicationDeadline: editingOpportunity.applicationDeadline
+        applicationDeadline: editingOpportunity.applicationDeadline,
+        grantAmount: Number(editingOpportunity.grantAmount) || 250000,
       })
       
       setOpportunities((prev) =>
@@ -157,9 +161,15 @@ export default function SponsorOpportunities() {
               </p>
 
               <div style={{ borderTop: '1px solid var(--color-paper-border)', marginTop: '16px', paddingTop: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '8px' }}>
-                  <span style={{ color: 'var(--color-ink-soft)' }}>Duration:</span>
-                  <strong style={{ color: 'var(--color-ink)' }}>{opp.duration}</strong>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px', fontSize: '0.85rem' }}>
+                  <div>
+                    <span style={{ color: 'var(--color-ink-soft)', display: 'block' }}>Disbursement Grant:</span>
+                    <strong style={{ color: '#166534', fontSize: '0.98rem' }}>₦{(opp.grantAmount || 250000).toLocaleString()}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--color-ink-soft)', display: 'block' }}>Duration:</span>
+                    <strong style={{ color: 'var(--color-ink)' }}>{opp.duration}</strong>
+                  </div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '16px' }}>
                   <span style={{ color: 'var(--color-ink-soft)' }}>Deadline:</span>
@@ -226,6 +236,23 @@ export default function SponsorOpportunities() {
               </div>
 
               <div className="field-group">
+                <label>Disbursement Price / Grant Value (₦) *</label>
+                <input 
+                  type="number" 
+                  name="grantAmount" 
+                  value={formData.grantAmount} 
+                  onChange={handleFormChange} 
+                  placeholder="e.g. 250000"
+                  min="1000"
+                  step="1000"
+                  required 
+                />
+                <small style={{ color: 'var(--color-ink-soft)', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>
+                  Tuition grant amount to be disbursed directly to approved students via Paystack.
+                </small>
+              </div>
+
+              <div className="field-group">
                 <label>Description *</label>
                 <textarea name="description" rows="3" value={formData.description} onChange={handleFormChange} required />
               </div>
@@ -268,9 +295,22 @@ export default function SponsorOpportunities() {
                 <input type="text" value={editingOpportunity.title} onChange={(e) => setEditingOpportunity({ ...editingOpportunity, title: e.target.value })} required />
               </div>
 
-              <div className="field-group">
-                <label>Deadline</label>
-                <input type="date" value={editingOpportunity.applicationDeadline ? new Date(editingOpportunity.applicationDeadline).toISOString().split('T')[0] : ''} onChange={(e) => setEditingOpportunity({ ...editingOpportunity, applicationDeadline: e.target.value })} required />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="field-group">
+                  <label>Deadline</label>
+                  <input type="date" value={editingOpportunity.applicationDeadline ? new Date(editingOpportunity.applicationDeadline).toISOString().split('T')[0] : ''} onChange={(e) => setEditingOpportunity({ ...editingOpportunity, applicationDeadline: e.target.value })} required />
+                </div>
+                <div className="field-group">
+                  <label>Disbursement Price (₦)</label>
+                  <input 
+                    type="number" 
+                    value={editingOpportunity.grantAmount || 250000} 
+                    onChange={(e) => setEditingOpportunity({ ...editingOpportunity, grantAmount: Number(e.target.value) })} 
+                    min="1000"
+                    step="1000"
+                    required 
+                  />
+                </div>
               </div>
 
               <div className="field-group">
