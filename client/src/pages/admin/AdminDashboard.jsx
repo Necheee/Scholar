@@ -49,13 +49,29 @@ export default function AdminDashboard() {
             Overview of system activity, fraud detection, and manual review queues.
           </p>
         </div>
-        <button
-          type="button"
-          className="primary-button"
-          onClick={() => navigate('/admin/flagged')}
-        >
-          Review Flagged
-        </button>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => navigate('/admin/users')}
+          >
+            Manage Users
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => navigate('/admin/report')}
+          >
+            System Report
+          </button>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => navigate('/admin/flagged')}
+          >
+            Review Flagged
+          </button>
+        </div>
       </div>
 
       <div className="stats-grid">
@@ -93,12 +109,12 @@ export default function AdminDashboard() {
                 {recentFlagged.map((app) => (
                   <tr key={app._id}>
                     <td>
-                      <strong>{app.student.name}</strong>
+                      <strong>{app.student?.name || 'Applicant'}</strong>
                       <div style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>
-                        {app.student.email}
+                        {app.student?.email || 'No email provided'}
                       </div>
                     </td>
-                    <td>{app.sponsorship?.title}</td>
+                    <td>{app.sponsorship?.title || 'Opportunity'}</td>
                     <td>{new Date(app.createdAt).toLocaleDateString()}</td>
                     <td>
                       <button 
