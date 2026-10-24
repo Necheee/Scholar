@@ -1,6 +1,8 @@
 import User from '../models/User.js';
 import StudentProfile from '../models/StudentProfile.js';
 import SponsorProfile from '../models/SponsorProfile.js';
+import Sponsorship from '../models/Sponsorship.js';
+import Application from '../models/Application.js';
 import generateToken from '../utils/generateToken.js';
 import crypto from 'crypto';
 
@@ -232,13 +234,49 @@ export const deleteAccount = async (req, res, next) => {
 
     const user = await User.findById(req.user._id).select('+password');
 
-    if (!(await user.matchPassword(password))) {
-      res.status(401);
-      throw new Error('Invalid password');
+    if (!user) {
+      res.status(404);
+      throw new Error('User not found');
     }
 
+    if (!(await user.matchPassword(password))) {
+      res.status(401);
+      throw new Error('Invalid password. Account deletion aborted.');
+    }
+
+    // Role-specific cascading cleanup
+    if (user.role === 'Sponsor') {
+      // 1. Remove Sponsor Profile
+      await SponsorProfile.findOneAndDelete({ user: req.user._id });
+
+      // 2. Close all active sponsorships created by this sponsor
+      await Sponsorship.updateMany(
+        { sponsor: req.user._id },
+        { status: 'Closed' }
+      );
+    } else if (user.role === 'Student') {
+      // 1. Remove Student Profile
+      await StudentProfile.findOneAndDelete({ user: req.user._id });
+
+      // 2. Mark any non-awarded applications as Withdrawn
+      await Application.updateMany(
+        { 
+          student: req.user._id, 
+          status: { $in: ['Under screening', 'Under Admin review', 'Waiting for additional information', 'Under Sponsor review'] } 
+        },
+        { status: 'Withdrawn' }
+      );
+    }
+
+    // Delete User record
     await User.findByIdAndDelete(req.user._id);
     
+    // Clear the authentication cookie
+    res.cookie('token', '', {
+      httpOnly: true,
+      expires: new Date(0)
+    });
+
     res.json({ message: 'Account deleted successfully' });
   } catch (error) {
     next(error);

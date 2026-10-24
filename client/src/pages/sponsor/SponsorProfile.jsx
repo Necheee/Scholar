@@ -1,17 +1,20 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import api from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
 
 export default function SponsorProfile() {
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [securityData, setSecurityData] = useState({ currentPassword: '', newPassword: '' })
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
 
-  const [profile, setProfile] = useState({
-    orgName: 'Apex Education Foundation',
-    contactPerson: 'Dr. Marcus Vance',
-    email: 'sponsor@example.com',
+  const getInitialProfile = () => ({
+    orgName: user?.name || 'Apex Education Foundation',
+    contactPerson: user?.name || 'Dr. Marcus Vance',
+    email: user?.email || 'sponsor@example.com',
     phone: '+234 (1) 892-4410',
     website: 'https://apexeducation.org',
     location: 'Lagos, Nigeria',
@@ -19,10 +22,17 @@ export default function SponsorProfile() {
     description:
       'Apex Education Foundation empowers high-performing university students across Africa through targeted STEM tuition grants, technology access, and mentorship.',
     focusAreas: 'Computer Science, Electrical Engineering, Biotechnology, Mathematics',
-    annualGrantBudget: '$100,000 USD',
+    annualGrantBudget: '₦10,000,000',
   })
 
-  const [editData, setEditData] = useState(profile)
+  const [profile, setProfile] = useState(getInitialProfile)
+  const [editData, setEditData] = useState(getInitialProfile)
+
+  useEffect(() => {
+    const updated = getInitialProfile()
+    setProfile(updated)
+    setEditData(updated)
+  }, [user])
 
   function handleEditChange(field, value) {
     setEditData((prev) => ({ ...prev, [field]: value }))
@@ -37,6 +47,36 @@ export default function SponsorProfile() {
   function handleCancelEdit() {
     setEditData(profile)
     setIsEditing(false)
+  }
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault()
+    try {
+      await api.put('/auth/change-password', securityData)
+      alert('Password updated successfully!')
+      setShowPasswordModal(false)
+      setSecurityData({ currentPassword: '', newPassword: '' })
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to update password')
+    }
+  }
+
+  const handleDeleteAccount = async (e) => {
+    e.preventDefault()
+    if (!deletePassword) {
+      alert('Please enter your password to confirm account deletion.')
+      return
+    }
+    try {
+      setIsDeleting(true)
+      await api.delete('/auth/delete-account', { data: { password: deletePassword } })
+      alert('Your organization account has been permanently deleted.')
+      logout()
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to delete organization account')
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   return (
@@ -227,6 +267,10 @@ export default function SponsorProfile() {
               <span>Manage Sponsor Team Members</span>
               <span className="arrow">→</span>
             </button>
+            <button type="button" className="settings-item danger" onClick={() => setShowDeleteModal(true)}>
+              <span>Delete Organization Account</span>
+              <span className="arrow">&#8594;</span>
+            </button>
           </div>
         </section>
       </div>
@@ -248,7 +292,7 @@ export default function SponsorProfile() {
           <div className="card modal-content" style={{ maxWidth: '400px', width: '100%' }}>
             <div className="section-header" style={{ marginBottom: '16px' }}>
               <h3>Change Password</h3>
-              <button className="action-button" onClick={() => setShowPasswordModal(false)}>X</button>
+              <button className="action-button" onClick={() => setShowPasswordModal(false)}>✕</button>
             </div>
             <form onSubmit={handleChangePassword}>
               <div className="field-group">
@@ -260,6 +304,50 @@ export default function SponsorProfile() {
                 <input type="password" required value={securityData.newPassword} onChange={(e) => setSecurityData(prev => ({...prev, newPassword: e.target.value}))} />
               </div>
               <button type="submit" className="primary-button" style={{ width: '100%', marginTop: '16px' }}>Update Password</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div className="modal-backdrop">
+          <div className="card modal-content" style={{ maxWidth: '440px', width: '100%' }}>
+            <div className="section-header" style={{ marginBottom: '16px' }}>
+              <h3 style={{ color: '#b91c1c' }}>Delete Organization Account</h3>
+              <button className="action-button" onClick={() => { setShowDeleteModal(false); setDeletePassword('') }}>✕</button>
+            </div>
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '14px 16px', borderRadius: '8px', color: '#991b1b', marginBottom: '18px', fontSize: '0.88rem', lineHeight: 1.5 }}>
+              <strong>Warning:</strong> Deleting your sponsor account will permanently close all active sponsorships and remove your organization profile. This action cannot be undone.
+            </div>
+            <form onSubmit={handleDeleteAccount}>
+              <div className="field-group">
+                <label>Enter your password to confirm:</label>
+                <input 
+                  type="password" 
+                  required 
+                  placeholder="Current account password"
+                  value={deletePassword} 
+                  onChange={(e) => setDeletePassword(e.target.value)} 
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  style={{ flex: 1 }}
+                  onClick={() => { setShowDeleteModal(false); setDeletePassword('') }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={isDeleting}
+                  style={{ flex: 1, background: '#dc2626', borderColor: '#dc2626', color: '#ffffff' }}
+                >
+                  {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
