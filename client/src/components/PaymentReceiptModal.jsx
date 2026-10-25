@@ -155,11 +155,37 @@ export default function PaymentReceiptModal({ applicationId, onClose }) {
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(15, 23, 42, 0.75)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+        zIndex: 999999,
+        overflowY: 'auto',
+      }}
     >
       <div 
         id="receipt-modal-printable"
         className="receipt-modal-card"
         onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#ffffff',
+          width: '100%',
+          maxWidth: '540px',
+          borderRadius: '18px',
+          overflow: 'hidden',
+          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.45)',
+          position: 'relative',
+          margin: 'auto',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+        }}
       >
         {/* Receipt Header Banner */}
         <div style={{ background: '#092440', color: '#ffffff', padding: '22px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
