@@ -85,6 +85,7 @@ export const initializeDisbursement = async (req, res) => {
         authorizationUrl: data.data.authorization_url,
         accessCode: data.data.access_code,
         publicKey: process.env.PAYSTACK_PUBLIC_KEY || process.env.VITE_PAYSTACK_PUBLIC_KEY,
+        isLiveMode: (process.env.PAYSTACK_PUBLIC_KEY || '').startsWith('pk_live_'),
         beneficiary: application.student.name,
         opportunity: application.sponsorship.title,
         sponsorEmail: req.user.email,
