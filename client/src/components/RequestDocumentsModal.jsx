@@ -241,7 +241,7 @@ export default function RequestDocumentsModal({
                       type="checkbox"
                       checked={isChecked}
                       onChange={() => handleToggleDoc(doc.label)}
-                      style={{ width: '18px', height: '18px', accentColor: 'var(--color-primary)' }}
+                      style={{ width: '18px', height: '18px', accentColor: '#d97706' }}
                     />
                     <span>{doc.label}</span>
                   </label>
@@ -354,7 +354,13 @@ export default function RequestDocumentsModal({
               type="submit"
               className="primary-button"
               disabled={isSubmitting}
-              style={{ minWidth: '160px', fontWeight: 600 }}
+              style={{
+                minWidth: '160px',
+                fontWeight: 600,
+                background: '#d97706',
+                color: '#ffffff',
+                border: 'none',
+              }}
             >
               {isSubmitting ? 'Sending Request...' : 'Send Document Request'}
             </button>

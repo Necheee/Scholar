@@ -308,7 +308,11 @@ export default function SponsorStudentsDirectory() {
                         flex: 1.2,
                         padding: '8px 12px',
                         fontSize: '0.85rem',
-                        background: hasSubmitted ? '#16a34a' : isPending ? '#d97706' : 'var(--color-primary)',
+                        background: '#d97706',
+                        color: '#ffffff',
+                        border: 'none',
+                        fontWeight: 600,
+                        borderRadius: '8px',
                       }}
                       onClick={() => setRequestDocStudent(student)}
                     >
@@ -558,7 +562,14 @@ export default function SponsorStudentsDirectory() {
               <button
                 type="button"
                 className="primary-button"
-                style={{ fontWeight: 600 }}
+                style={{
+                  fontWeight: 600,
+                  background: '#d97706',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '10px 18px',
+                  borderRadius: '8px',
+                }}
                 onClick={() => {
                   const studentToRequest = selectedStudent
                   setSelectedStudent(null)
