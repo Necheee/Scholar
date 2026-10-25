@@ -86,6 +86,15 @@ export default function PaymentReceiptModal({ applicationId, onClose }) {
                   <span style={{ color: 'var(--color-ink-soft)' }}>Student Beneficiary:</span>
                   <strong>{receipt.student?.name}</strong>
                 </div>
+                {receipt.studentBankDetails?.accountNumber && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '8px 12px', borderRadius: '6px' }}>
+                    <span style={{ color: '#166534', fontWeight: 600 }}>Settlement Bank Account:</span>
+                    <span style={{ color: '#15803d', textAlign: 'right', fontWeight: 600 }}>
+                      {receipt.studentBankDetails.bankName || 'Bank'} &bull; {receipt.studentBankDetails.accountNumber}
+                      {receipt.studentBankDetails.accountName ? ` (${receipt.studentBankDetails.accountName})` : ''}
+                    </span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--color-ink-soft)' }}>Sponsor / Foundation:</span>
                   <strong>{receipt.sponsor?.name}</strong>

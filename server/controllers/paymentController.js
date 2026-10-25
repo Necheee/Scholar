@@ -1,5 +1,6 @@
 import Payment from '../models/Payment.js';
 import Application from '../models/Application.js';
+import StudentProfile from '../models/StudentProfile.js';
 import Notification from '../models/Notification.js';
 import ActivityLog from '../models/ActivityLog.js';
 import { parseDurationToDays } from '../utils/durationHelper.js';
@@ -273,7 +274,12 @@ export const getPaymentReceipt = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to view this receipt' });
     }
 
-    res.json(payment);
+    const studentProfile = await StudentProfile.findOne({ user: payment.student?._id });
+
+    res.json({
+      ...payment.toObject(),
+      studentBankDetails: studentProfile?.bankDetails || null,
+    });
   } catch (error) {
     console.error('Get receipt error:', error);
     res.status(500).json({ message: error.message || 'Error fetching receipt' });

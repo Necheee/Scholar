@@ -282,3 +282,54 @@ export const deleteAccount = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Get current student's profile including bank details
+// @route   GET /api/auth/student-profile
+// @access  Private (Student)
+export const getStudentProfile = async (req, res, next) => {
+  try {
+    let profile = await StudentProfile.findOne({ user: req.user._id }).populate('user', 'name email');
+    if (!profile) {
+      profile = await StudentProfile.create({
+        user: req.user._id,
+        institution: 'University of Nigeria, Nsukka',
+        department: 'Computer Science',
+      });
+      profile = await profile.populate('user', 'name email');
+    }
+    res.json(profile);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update current student's profile (institution, department, bankDetails)
+// @route   PUT /api/auth/student-profile
+// @access  Private (Student)
+export const updateStudentProfile = async (req, res, next) => {
+  try {
+    const { institution, department, seekingSponsorship, bankDetails } = req.body;
+    let profile = await StudentProfile.findOne({ user: req.user._id });
+
+    if (!profile) {
+      profile = new StudentProfile({ user: req.user._id });
+    }
+
+    if (institution !== undefined) profile.institution = institution;
+    if (department !== undefined) profile.department = department;
+    if (seekingSponsorship !== undefined) profile.seekingSponsorship = seekingSponsorship;
+    if (bankDetails) {
+      profile.bankDetails = {
+        bankName: bankDetails.bankName || '',
+        accountNumber: bankDetails.accountNumber || '',
+        accountName: bankDetails.accountName || '',
+      };
+    }
+
+    await profile.save();
+    const updated = await StudentProfile.findOne({ user: req.user._id }).populate('user', 'name email');
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+};

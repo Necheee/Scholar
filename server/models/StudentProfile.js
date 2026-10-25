@@ -7,6 +7,12 @@ const academicRecordSchema = new mongoose.Schema({
   info: { type: String }, // General academic performance or details
 });
 
+const bankDetailsSchema = new mongoose.Schema({
+  bankName: { type: String, default: '' },
+  accountNumber: { type: String, default: '' },
+  accountName: { type: String, default: '' },
+});
+
 const studentProfileSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
@@ -24,6 +30,10 @@ const studentProfileSchema = new mongoose.Schema({
   seekingSponsorship: {
     type: Boolean,
     default: false,
+  },
+  bankDetails: {
+    type: bankDetailsSchema,
+    default: () => ({}),
   },
   academicRecords: [academicRecordSchema],
 }, {

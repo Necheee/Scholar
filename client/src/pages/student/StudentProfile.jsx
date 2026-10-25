@@ -20,6 +20,7 @@ export default function StudentProfile() {
   const [securityData, setSecurityData] = useState({ currentPassword: '', newPassword: '' })
   const [isEditing, setIsEditing] = useState(false)
   const [isSeeking, setIsSeeking] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
 
   const getInitialProfile = () => {
     const isDavid = user?.name?.toLowerCase().includes('david') || user?.email?.toLowerCase().includes('david')
@@ -34,6 +35,9 @@ export default function StudentProfile() {
         gpa: '3.85',
         bio: 'Hardware researcher specializing in low-power LoRaWAN networks for precision agriculture.',
         location: 'Ogun State, Nigeria',
+        bankName: 'Access Bank',
+        accountNumber: '0123456789',
+        accountName: user?.name || 'David Adeleke',
       }
     }
     return {
@@ -45,7 +49,10 @@ export default function StudentProfile() {
       year: '300-level',
       gpa: '3.85',
       bio: 'Passionate about distributed systems and cloud infrastructure. Ranked in the top 3% of the department.',
-      location: 'Ibadan, Nigeria',
+        location: 'Enugu State, Nigeria',
+        bankName: 'Guaranty Trust Bank (GTBank)',
+        accountNumber: '0234567891',
+        accountName: user?.name || 'Alex Johnson',
     }
   }
 
@@ -56,6 +63,36 @@ export default function StudentProfile() {
     const updated = getInitialProfile()
     setProfile(updated)
     setEditData(updated)
+    async function fetchBackendProfile() {
+      try {
+        const { data } = await api.get('/auth/student-profile')
+        if (data) {
+          setProfile(prev => ({
+            ...prev,
+            school: data.institution || prev.school,
+            major: data.department || prev.major,
+            bankName: data.bankDetails?.bankName || prev.bankName,
+            accountNumber: data.bankDetails?.accountNumber || prev.accountNumber,
+            accountName: data.bankDetails?.accountName || prev.accountName,
+          }))
+          setEditData(prev => ({
+            ...prev,
+            school: data.institution || prev.school,
+            major: data.department || prev.major,
+            bankName: data.bankDetails?.bankName || prev.bankName,
+            accountNumber: data.bankDetails?.accountNumber || prev.accountNumber,
+            accountName: data.bankDetails?.accountName || prev.accountName,
+          }))
+          if (data.seekingSponsorship !== undefined) {
+            setIsSeeking(data.seekingSponsorship)
+          }
+        }
+      } catch (err) {
+        console.warn('Backend student profile fetch fallback:', err)
+      }
+    }
+
+    fetchBackendProfile()
   }, [user])
 
   const handleEditChange = (field, value) => {
@@ -65,10 +102,30 @@ export default function StudentProfile() {
     }))
   }
 
-  const handleSaveChanges = () => {
-    setProfile(editData)
-    setIsEditing(false)
-    alert('Profile updated successfully!')
+  const handleSaveChanges = async () => {
+    try {
+      setIsSaving(true)
+      await api.put('/auth/student-profile', {
+        institution: editData.school,
+        department: editData.major,
+        seekingSponsorship: isSeeking,
+        bankDetails: {
+          bankName: editData.bankName,
+          accountNumber: editData.accountNumber,
+          accountName: editData.accountName,
+        }
+      })
+  
+      setProfile(editData)
+  
+      setIsEditing(false)
+      alert('Profile and disbursement bank details updated successfully!')
+    } catch (error) {
+      console.error('Failed to update profile:', error)
+      alert(error.response?.data?.message || 'Failed to update profile')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
 
@@ -98,6 +155,7 @@ export default function StudentProfile() {
   const handleCancelEdit = () => {
     setEditData(profile)
     setIsEditing(false)
+
   }
 
   return (
@@ -247,6 +305,87 @@ export default function StudentProfile() {
               <div className="info-item">
                 <span className="label">GPA</span>
                 <span className="value">{profile.gpa}</span>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Settlement Bank Details (NUBAN) - Chapter 3.4.5 Table 3.2 */}
+        <section className="profile-section card" style={{ borderLeft: '4px solid #16a34a' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <h3 style={{ margin: 0 }}>Disbursement Bank Account (NUBAN)</h3>
+            <span style={{ fontSize: '0.8rem', background: '#dcfce7', color: '#166534', padding: '3px 10px', borderRadius: '12px', fontWeight: 600 }}>
+              ✓ Verified Payout Account
+            </span>
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)', marginBottom: '16px' }}>
+            Your official Nigerian commercial bank account where scholarship tuition grants and academic stipends are settled.
+          </p>
+
+          {isEditing ? (
+            <div className="form-grid">
+              <div className="field-group">
+                <label>Bank Name</label>
+                <select
+                  value={editData.bankName}
+                  onChange={(e) => handleEditChange('bankName', e.target.value)}
+                >
+                  <option value="">Select Bank...</option>
+                  <option value="Access Bank">Access Bank</option>
+                  <option value="GTBank">Guaranty Trust Bank</option>
+                  <option value="Zenith Bank">Zenith Bank</option>
+                  <option value="First Bank of Nigeria">First Bank of Nigeria</option>
+                  <option value="United Bank for Africa (UBA)">United Bank for Africa (UBA)</option>
+                  <option value="Kuda Bank">Kuda Bank</option>
+                  <option value="OPay">OPay Digital Services</option>
+                  <option value="PalmPay">PalmPay</option>
+                  <option value="Moniepoint MFB">Moniepoint MFB</option>
+                  <option value="Fidelity Bank">Fidelity Bank</option>
+                  <option value="Stanbic IBTC Bank">Stanbic IBTC Bank</option>
+                  <option value="Union Bank">Union Bank</option>
+                  <option value="Wema Bank (ALAT)">Wema Bank (ALAT)</option>
+                  <option value="Sterling Bank">Sterling Bank</option>
+                </select>
+              </div>
+              <div className="field-group">
+                <label>NUBAN Account Number (10 Digits)</label>
+                <input
+                  type="text"
+                  maxLength={10}
+                  placeholder="e.g. 0123456789"
+                  value={editData.accountNumber}
+                  onChange={(e) => handleEditChange('accountNumber', e.target.value.replace(/\D/g, ''))}
+                />
+              </div>
+              <div className="field-group" style={{ gridColumn: 'span 2' }}>
+                <label>Account Holder Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Alex Johnson"
+                  value={editData.accountName}
+                  onChange={(e) => handleEditChange('accountName', e.target.value)}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="info-grid">
+              <div className="info-item">
+                <span className="label">Bank Name</span>
+                <span className="value">{profile.bankName || 'Not Set (Click Edit Profile)'}</span>
+              </div>
+              <div className="info-item">
+                <span className="label">Account Number</span>
+                <strong className="value" style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }}>
+                  {profile.accountNumber || '••••••••••'}
+                </strong>
+              </div>
+              <div className="info-item">
+                <span className="label">Account Name</span>
+                <span className="value">{profile.accountName || profile.name}</span>
+              </div>
+              <div className="info-item">
+                <span className="label">Disbursement Channel</span>
+                <span className="value" style={{ color: '#166534', fontWeight: 600 }}>Active for Payouts</span>
               </div>
             </div>
           )}
