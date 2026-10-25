@@ -9,7 +9,10 @@ export default function AdminDashboard() {
   
   const [stats, setStats] = useState({
     flaggedPending: 0,
-    totalFlagged: 0
+    totalFlagged: 0,
+    totalDisbursedAmount: 0,
+    totalApplications: 0,
+    totalUsers: 0
   })
   const [recentFlagged, setRecentFlagged] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -18,16 +21,17 @@ export default function AdminDashboard() {
     async function fetchAdminData() {
       try {
         setIsLoading(true)
-        const { data } = await api.get('/applications/flagged')
-        
-        const pending = data.filter(app => app.status === 'Under Admin review')
+        const { data } = await api.get('/admin/dashboard-stats')
         
         setStats({
-          flaggedPending: pending.length,
-          totalFlagged: data.length
+          flaggedPending: data.flaggedPending || 0,
+          totalFlagged: data.totalFlagged || 0,
+          totalDisbursedAmount: data.totalDisbursedAmount || 0,
+          totalApplications: data.totalApplications || 0,
+          totalUsers: data.totalUsers || 0,
         })
         
-        setRecentFlagged(pending.slice(0, 3))
+        setRecentFlagged(data.recentFlagged || [])
       } catch (error) {
         console.error('Failed to load admin data:', error)
       } finally {
@@ -75,13 +79,27 @@ export default function AdminDashboard() {
       </div>
 
       <div className="stats-grid">
+        <div className="stat-card" style={{ borderTop: '4px solid #16a34a' }}>
+          <div className="stat-value" style={{ color: '#166534', fontSize: '1.5rem' }}>
+            ₦{stats.totalDisbursedAmount.toLocaleString()}
+          </div>
+          <div className="stat-label">Total Funds Disbursed via Paystack</div>
+        </div>
         <div className="stat-card" style={{ borderTop: '4px solid #eab308' }}>
           <div className="stat-value">{stats.flaggedPending}</div>
-          <div className="stat-label">Action Required (Flagged)</div>
+          <div className="stat-label">Action Required (Flagged Queue)</div>
+        </div>
+        <div className="stat-card" style={{ borderTop: '4px solid #8b5cf6' }}>
+          <div className="stat-value">{stats.totalFlagged}</div>
+          <div className="stat-label">Fraud Incidents Intercepted</div>
         </div>
         <div className="stat-card" style={{ borderTop: '4px solid #3b82f6' }}>
-          <div className="stat-value">{stats.totalFlagged}</div>
-          <div className="stat-label">Total Historically Flagged</div>
+          <div className="stat-value">{stats.totalApplications}</div>
+          <div className="stat-label">Total Applications Submitted</div>
+        </div>
+        <div className="stat-card" style={{ borderTop: '4px solid #64748b' }}>
+          <div className="stat-value">{stats.totalUsers}</div>
+          <div className="stat-label">Registered Accounts</div>
         </div>
       </div>
 

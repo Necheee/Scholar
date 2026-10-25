@@ -3,6 +3,7 @@ import Application from '../models/Application.js';
 import User from '../models/User.js';
 import Sponsorship from '../models/Sponsorship.js';
 import FraudResult from '../models/FraudResult.js';
+import Payment from '../models/Payment.js';
 import { logActivity } from '../services/activityService.js';
 
 // @desc    Get all activity logs
@@ -90,40 +91,97 @@ export const deleteUser = async (req, res, next) => {
   }
 };
 
+// @desc    Get aggregated stats and urgent review queue for Admin Dashboard
+// @route   GET /api/admin/dashboard-stats
+// @access  Private/Admin
+export const getAdminDashboardStats = async (req, res, next) => {
+  try {
+    const [
+      flaggedPendingCount,
+      totalFlaggedCount,
+      totalUsersCount,
+      totalApplicationsCount,
+      successfulPayments,
+      recentPendingApps
+    ] = await Promise.all([
+      Application.countDocuments({ status: 'Under Admin review' }),
+      Application.countDocuments({ fraudReviewStatus: 'Flagged' }),
+      User.countDocuments(),
+      Application.countDocuments(),
+      Payment.find({ status: 'Success' }).select('amount').lean(),
+      Application.find({ status: 'Under Admin review' })
+        .populate('student', 'name email')
+        .populate('sponsorship', 'title')
+        .sort({ updatedAt: -1 })
+        .limit(5)
+        .lean()
+    ]);
+
+    const totalDisbursedAmount = successfulPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+    res.json({
+      flaggedPending: flaggedPendingCount,
+      totalFlagged: totalFlaggedCount,
+      totalUsers: totalUsersCount,
+      totalApplications: totalApplicationsCount,
+      totalDisbursedAmount,
+      recentFlagged: recentPendingApps
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Generate Report: Aggregate statistical summary of system operations
 // @route   GET /api/admin/report
 // @access  Private/Admin (Use Case 3.2.2.1 & Class Diagram 3.4.2 generateReport)
 export const getSystemReport = async (req, res, next) => {
   try {
-    // 1. User Demographics
-    const totalUsers = await User.countDocuments();
-    const studentCount = await User.countDocuments({ role: 'Student' });
-    const sponsorCount = await User.countDocuments({ role: 'Sponsor' });
-    const adminCount = await User.countDocuments({ role: 'Admin' });
+    const [
+      totalUsers,
+      studentCount,
+      sponsorCount,
+      adminCount,
+      totalSponsorships,
+      openSponsorships,
+      closedSponsorships,
+      totalApplications,
+      approvedCount,
+      disbursedCount,
+      rejectedCount,
+      underAdminReviewCount,
+      underSponsorReviewCount,
+      waitingInfoCount,
+      successfulPayments,
+      totalFlaggedApplications,
+      highRiskFlags,
+      mediumRiskFlags,
+      lowRiskFlags,
+      passedCleanCount
+    ] = await Promise.all([
+      User.countDocuments(),
+      User.countDocuments({ role: 'Student' }),
+      User.countDocuments({ role: 'Sponsor' }),
+      User.countDocuments({ role: 'Admin' }),
+      Sponsorship.countDocuments(),
+      Sponsorship.countDocuments({ status: 'Open' }),
+      Sponsorship.countDocuments({ status: 'Closed' }),
+      Application.countDocuments(),
+      Application.countDocuments({ status: 'Approved' }),
+      Application.countDocuments({ status: 'Grant Disbursed' }),
+      Application.countDocuments({ status: 'Rejected' }),
+      Application.countDocuments({ status: 'Under Admin review' }),
+      Application.countDocuments({ status: 'Under Sponsor review' }),
+      Application.countDocuments({ status: 'Waiting for additional information' }),
+      Payment.find({ status: 'Success' }).select('amount').lean(),
+      Application.countDocuments({ fraudReviewStatus: 'Flagged' }),
+      FraudResult.countDocuments({ overallRisk: 'High' }),
+      FraudResult.countDocuments({ overallRisk: 'Medium' }),
+      FraudResult.countDocuments({ overallRisk: 'Low' }),
+      Application.countDocuments({ fraudReviewStatus: 'Passed' })
+    ]);
 
-    // 2. Sponsorship Metrics
-    const totalSponsorships = await Sponsorship.countDocuments();
-    const openSponsorships = await Sponsorship.countDocuments({ status: 'Open' });
-    const closedSponsorships = await Sponsorship.countDocuments({ status: 'Closed' });
-
-    // 3. Application Pipeline
-    const totalApplications = await Application.countDocuments();
-    const approvedCount = await Application.countDocuments({ status: 'Approved' });
-    const disbursedApps = await Application.find({ status: 'Grant Disbursed' }).populate('sponsorship', 'amount');
-    const rejectedCount = await Application.countDocuments({ status: 'Rejected' });
-    const underAdminReviewCount = await Application.countDocuments({ status: 'Under Admin review' });
-    const underSponsorReviewCount = await Application.countDocuments({ status: 'Under Sponsor review' });
-    const waitingInfoCount = await Application.countDocuments({ status: 'Waiting for additional information' });
-
-    // 4. Financial Disbursements (Paystack)
-    const totalDisbursedAmount = disbursedApps.reduce((sum, app) => sum + (app.sponsorship?.amount || 0), 0);
-
-    // 5. Rule-Based Fraud Engine Metrics
-    const totalFlaggedIncidents = await FraudResult.countDocuments();
-    const highRiskFlags = await FraudResult.countDocuments({ overallRisk: 'High' });
-    const mediumRiskFlags = await FraudResult.countDocuments({ overallRisk: 'Medium' });
-    const lowRiskFlags = await FraudResult.countDocuments({ overallRisk: 'Low' });
-    const passedCleanCount = await Application.countDocuments({ fraudReviewStatus: 'Passed' });
+    const totalDisbursedAmount = successfulPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
     res.json({
       generatedAt: new Date(),
@@ -141,7 +199,7 @@ export const getSystemReport = async (req, res, next) => {
       },
       applications: {
         total: totalApplications,
-        disbursed: disbursedApps.length,
+        disbursed: disbursedCount,
         approved: approvedCount,
         rejected: rejectedCount,
         underAdminReview: underAdminReviewCount,
@@ -153,7 +211,7 @@ export const getSystemReport = async (req, res, next) => {
         currency: 'NGN (₦)',
       },
       fraudDetection: {
-        totalFlagged: totalFlaggedIncidents,
+        totalFlagged: totalFlaggedApplications,
         cleanPassed: passedCleanCount,
         riskLevels: {
           high: highRiskFlags,

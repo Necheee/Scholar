@@ -4,11 +4,15 @@ import {
   getInformationRequests, 
   getUsers, 
   deleteUser, 
-  getSystemReport 
+  getSystemReport,
+  getAdminDashboardStats
 } from '../controllers/adminController.js';
 import { protect, authorize } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+
+router.route('/dashboard-stats')
+  .get(protect, authorize('Admin'), getAdminDashboardStats);
 
 router.route('/activity')
   .get(protect, authorize('Admin'), getActivityLogs);

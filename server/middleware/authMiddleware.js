@@ -13,17 +13,29 @@ const protect = async (req, res, next) => {
   }
 
   if (token) {
+    let decoded;
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = await User.findById(decoded.userId).select('-password');
-      next();
-    } catch (error) {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (jwtError) {
       res.status(401);
-      next(new Error('Not authorized, token failed'));
+      return next(new Error('Session expired or invalid. Please log in again.'));
+    }
+
+    try {
+      req.user = await User.findById(decoded.userId).select('-password');
+      if (!req.user) {
+        res.status(401);
+        return next(new Error('User account not found'));
+      }
+      next();
+    } catch (dbError) {
+      console.error('Database query error in authMiddleware:', dbError.message);
+      res.status(503);
+      return next(new Error('Database service unavailable. Please check your MongoDB Atlas connection and IP whitelist.'));
     }
   } else {
     res.status(401);
-    next(new Error('Not authorized, no token'));
+    next(new Error('Not authorized, no token provided'));
   }
 };
 
