@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import api from '../../services/api'
 import PaystackDisbursementModal from '../../components/PaystackDisbursementModal'
 import PaymentReceiptModal from '../../components/PaymentReceiptModal'
+import RequestDocumentsModal from '../../components/RequestDocumentsModal'
 
 export default function SponsorApplications() {
   const { state } = useLocation()
@@ -17,6 +18,7 @@ export default function SponsorApplications() {
   const [rejectReason, setRejectReason] = useState('')
   const [disburseApp, setDisburseApp] = useState(null)
   const [viewReceiptAppId, setViewReceiptAppId] = useState(null)
+  const [requestDocApp, setRequestDocApp] = useState(null)
 
   useEffect(() => {
     fetchApplications()
@@ -44,6 +46,7 @@ export default function SponsorApplications() {
   const filteredApps = applications.filter((app) => {
     if (filterSponsorship !== 'All' && app.sponsorship?._id !== filterSponsorship) return false
     if (filterStatus === 'Under Sponsor review' && app.status !== 'Under Sponsor review') return false
+    if (filterStatus === 'Waiting for additional information' && app.status !== 'Waiting for additional information') return false
     if (filterStatus === 'Approved' && app.status !== 'Approved') return false
     if (filterStatus === 'Grant Disbursed' && app.status !== 'Grant Disbursed') return false
     if (filterStatus === 'Rejected' && app.status !== 'Rejected') return false
@@ -89,7 +92,7 @@ export default function SponsorApplications() {
         <div>
           <h2 style={{ fontSize: '1.75rem', marginBottom: '8px' }}>Review Applications</h2>
           <p className="section-meta" style={{ fontSize: '0.95rem' }}>
-            Review applicants who have passed automated screening and disburse approved educational tuition grants.
+            Review applicants who have passed automated screening, request missing documents, and disburse approved educational tuition grants.
           </p>
         </div>
       </div>
@@ -104,6 +107,7 @@ export default function SponsorApplications() {
           >
             <option value="All">All Applications</option>
             <option value="Under Sponsor review">Needs Review</option>
+            <option value="Waiting for additional information">Waiting for Documents</option>
             <option value="Approved">Approved</option>
             <option value="Grant Disbursed">Grant Disbursed</option>
             <option value="Rejected">Rejected</option>
@@ -166,7 +170,8 @@ export default function SponsorApplications() {
                   </td>
                   <td>
                     <span className={`status-badge ${getStatusBadgeClass(app.status)}`}>
-                      {app.status === 'Under Sponsor review' ? 'Needs Review' : app.status}
+                      {app.status === 'Under Sponsor review' ? 'Needs Review' : 
+                       app.status === 'Waiting for additional information' ? 'Docs Requested' : app.status}
                     </span>
                   </td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -299,10 +304,10 @@ export default function SponsorApplications() {
               <div style={{ borderTop: '2px solid var(--color-border)', paddingTop: '24px', marginTop: '20px' }}>
                 <h4 style={{ fontSize: '1rem', marginBottom: '14px', fontWeight: 700 }}>Make a Decision</h4>
                 <div className="field-group" style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600 }}>Review Note / Reason (Required if requesting information or rejecting)</label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600 }}>Rejection Reason (Required if rejecting)</label>
                   <input
                     type="text"
-                    placeholder="e.g. Please upload your most recent semester transcript or identity confirmation."
+                    placeholder="e.g. Incomplete academic records or criteria not satisfied."
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
                     style={{ width: '100%', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--color-border)', fontSize: '0.95rem' }}
@@ -311,21 +316,22 @@ export default function SponsorApplications() {
                 <div style={{ display: 'flex', gap: '12px', marginTop: '16px', flexWrap: 'wrap' }}>
                   <button 
                     className="primary-button" 
-                    style={{ background: '#d32f2f', color: '#fff', border: 'none', flex: 1, minWidth: '130px', padding: '12px', borderRadius: '8px', fontWeight: 600 }} 
+                    style={{ background: '#d32f2f', color: '#fff', border: 'none', flex: 1, minWidth: '120px', padding: '12px', borderRadius: '8px', fontWeight: 600 }} 
                     onClick={() => handleDecision(selectedApp._id, 'reject')}
                   >
                     Reject
                   </button>
                   <button 
+                    type="button"
                     className="primary-button" 
-                    style={{ background: '#d97706', color: '#fff', border: 'none', flex: 1, minWidth: '130px', padding: '12px', borderRadius: '8px', fontWeight: 600 }} 
-                    onClick={() => handleDecision(selectedApp._id, 'request_info')}
+                    style={{ background: '#d97706', color: '#fff', border: 'none', flex: 1.4, minWidth: '160px', padding: '12px', borderRadius: '8px', fontWeight: 600 }} 
+                    onClick={() => setRequestDocApp(selectedApp)}
                   >
-                    Request Info
+                    📑 Request Necessary Documents
                   </button>
                   <button 
                     className="primary-button" 
-                    style={{ background: '#2e7d32', color: '#fff', border: 'none', flex: 1, minWidth: '140px', padding: '12px', borderRadius: '8px', fontWeight: 600 }} 
+                    style={{ background: '#2e7d32', color: '#fff', border: 'none', flex: 1, minWidth: '120px', padding: '12px', borderRadius: '8px', fontWeight: 600 }} 
                     onClick={() => handleDecision(selectedApp._id, 'approve')}
                   >
                     Approve
@@ -398,6 +404,21 @@ export default function SponsorApplications() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Modal: Request Necessary Documents */}
+      {requestDocApp && (
+        <RequestDocumentsModal
+          student={requestDocApp.student}
+          applicationId={requestDocApp._id}
+          onClose={() => setRequestDocApp(null)}
+          onSuccess={() => {
+            fetchApplications()
+            setSelectedApp(null)
+            setRequestDocApp(null)
+            alert('Document request sent successfully to the applicant!')
+          }}
+        />
       )}
 
       {disburseApp && (

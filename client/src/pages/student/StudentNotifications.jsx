@@ -1,21 +1,29 @@
 import { useState, useEffect } from 'react'
 import api from '../../services/api'
+import StudentDocumentUploadModal from '../../components/StudentDocumentUploadModal'
 
 export default function StudentNotifications() {
   const [notifications, setNotifications] = useState([])
+  const [docRequests, setDocRequests] = useState([])
+  const [activeUploadRequest, setActiveUploadRequest] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState('All')
 
   useEffect(() => {
-    fetchNotifications()
+    fetchData()
   }, [])
 
-  async function fetchNotifications() {
+  async function fetchData() {
     try {
-      const { data } = await api.get('/notifications')
-      setNotifications(data)
+      setIsLoading(true)
+      const [notifsRes, docReqsRes] = await Promise.all([
+        api.get('/notifications'),
+        api.get('/document-requests/my-requests').catch(() => ({ data: [] })),
+      ])
+      setNotifications(notifsRes.data)
+      setDocRequests(docReqsRes.data || [])
     } catch (error) {
-      console.error('Failed to fetch notifications:', error)
+      console.error('Failed to fetch notifications or doc requests:', error)
     } finally {
       setIsLoading(false)
     }
@@ -33,9 +41,28 @@ export default function StudentNotifications() {
   }
 
   const markAllAsRead = async () => {
-    const unread = notifications.filter(n => !n.isRead)
+    const unread = notifications.filter((n) => !n.isRead)
     for (const notification of unread) {
       await handleMarkAsRead(notification._id)
+    }
+  }
+
+  const handleOpenUploadForNotif = (notif) => {
+    // Find matching document request
+    let matched = null
+    if (notif.relatedDocumentRequest) {
+      matched = docRequests.find(
+        (r) => r._id === notif.relatedDocumentRequest || r._id === notif.relatedDocumentRequest?._id
+      )
+    }
+    if (!matched) {
+      // Find latest pending document request
+      matched = docRequests.find((r) => r.status === 'Pending')
+    }
+    if (matched) {
+      setActiveUploadRequest(matched)
+    } else {
+      alert('This document request has already been fulfilled or closed.')
     }
   }
 
@@ -80,40 +107,89 @@ export default function StudentNotifications() {
             <p>You have no {filter === 'All' ? '' : filter.toLowerCase() + ' '}notifications.</p>
           </div>
         ) : (
-          filteredNotifications.map((notif) => (
-            <div
-              key={notif._id}
-              className={`card ${notif.isRead ? '' : 'unread-notification'}`}
-              style={{
-                display: 'flex',
-                gap: '16px',
-                padding: '20px',
-                borderLeft: notif.isRead ? 'none' : '4px solid var(--color-primary)',
-              }}
-            >
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <h4 style={{ margin: 0 }}>{notif.title}</h4>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>
-                    {new Date(notif.createdAt).toLocaleDateString()}
-                  </span>
+          filteredNotifications.map((notif) => {
+            const isDocReq =
+              notif.relatedDocumentRequest ||
+              notif.title?.toLowerCase().includes('document request') ||
+              notif.title?.toLowerCase().includes('information required') ||
+              notif.title?.toLowerCase().includes('information requested')
+
+            const matchingReq = docRequests.find(
+              (r) =>
+                r._id === notif.relatedDocumentRequest ||
+                r._id === notif.relatedDocumentRequest?._id
+            ) || docRequests.find((r) => r.status === 'Pending')
+
+            const isPendingDoc = isDocReq && matchingReq && matchingReq.status === 'Pending'
+
+            return (
+              <div
+                key={notif._id}
+                className={`card ${notif.isRead ? '' : 'unread-notification'}`}
+                style={{
+                  display: 'flex',
+                  gap: '16px',
+                  padding: '20px',
+                  borderLeft: notif.isRead ? 'none' : '4px solid var(--color-primary)',
+                  alignItems: 'center',
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {isDocReq && <span>📑</span>}
+                      {notif.title}
+                    </h4>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>
+                      {new Date(notif.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p style={{ margin: 0, color: 'var(--color-ink-soft)', lineHeight: 1.45 }}>{notif.message}</p>
                 </div>
-                <p style={{ margin: 0, color: 'var(--color-ink-soft)' }}>{notif.message}</p>
+
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  {isPendingDoc && (
+                    <button
+                      type="button"
+                      className="primary-button"
+                      style={{
+                        padding: '8px 14px',
+                        fontSize: '0.85rem',
+                        background: '#d97706',
+                        whiteSpace: 'nowrap',
+                      }}
+                      onClick={() => handleOpenUploadForNotif(notif)}
+                    >
+                      Upload Documents
+                    </button>
+                  )}
+
+                  {!notif.isRead && (
+                    <button
+                      className="action-button"
+                      style={{ background: 'var(--color-paper-border)', padding: '6px 12px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                      onClick={() => handleMarkAsRead(notif._id)}
+                    >
+                      Mark read
+                    </button>
+                  )}
+                </div>
               </div>
-              
-              {!notif.isRead && (
-                <button
-                  className="action-button"
-                  style={{ alignSelf: 'center', background: 'var(--color-paper-border)', padding: '6px 12px', fontSize: '0.85rem' }}
-                  onClick={() => handleMarkAsRead(notif._id)}
-                >
-                  Mark read
-                </button>
-              )}
-            </div>
-          ))
+            )
+          })
         )}
       </div>
+
+      {activeUploadRequest && (
+        <StudentDocumentUploadModal
+          docRequest={activeUploadRequest}
+          onClose={() => setActiveUploadRequest(null)}
+          onSuccess={() => {
+            fetchData()
+            alert('Requested documents submitted successfully!')
+          }}
+        />
+      )}
     </div>
   )
 }

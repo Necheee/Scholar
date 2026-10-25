@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
 import PaymentReceiptModal from '../../components/PaymentReceiptModal'
+import StudentDocumentUploadModal from '../../components/StudentDocumentUploadModal'
 
 export default function StudentDashboard() {
   const navigate = useNavigate()
@@ -18,42 +19,49 @@ export default function StudentDashboard() {
   const [activeGrant, setActiveGrant] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [viewReceiptAppId, setViewReceiptAppId] = useState(null)
+  const [pendingDocRequests, setPendingDocRequests] = useState([])
+  const [activeUploadRequest, setActiveUploadRequest] = useState(null)
+
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true)
+      const [sponsorshipsRes, applicationsRes, docRequestsRes] = await Promise.all([
+        api.get('/sponsorships'),
+        api.get('/applications/my-applications'),
+        api.get('/document-requests/my-requests').catch(() => ({ data: [] })),
+      ])
+
+      const sponsorships = sponsorshipsRes.data
+      const applications = applicationsRes.data
+      const docRequests = docRequestsRes.data || []
+
+      const activeApplication = applications.find(a => 
+        a.status !== 'Rejected' && a.status !== 'Approved' && a.status !== 'Grant Disbursed' && a.status !== 'Withdrawn'
+      )
+
+      const currentFundedGrant = applications.find(a => a.status === 'Grant Disbursed' || a.fundingStatus?.isFundedActive)
+      
+      const awarded = applications.filter(a => a.status === 'Approved' || a.status === 'Grant Disbursed').length
+
+      const pendingRequests = docRequests.filter(r => r.status === 'Pending')
+
+      setStats({
+        activeApplications: activeApplication ? 1 : 0,
+        sponsorshipsAvailable: sponsorships.length,
+        awarded: awarded
+      })
+
+      setActiveApp(activeApplication || null)
+      setActiveGrant(currentFundedGrant || null)
+      setPendingDocRequests(pendingRequests)
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function fetchDashboardData() {
-      try {
-        setIsLoading(true)
-        const [sponsorshipsRes, applicationsRes] = await Promise.all([
-          api.get('/sponsorships'),
-          api.get('/applications/my-applications')
-        ])
-
-        const sponsorships = sponsorshipsRes.data
-        const applications = applicationsRes.data
-
-        const activeApplication = applications.find(a => 
-          a.status !== 'Rejected' && a.status !== 'Approved' && a.status !== 'Grant Disbursed' && a.status !== 'Withdrawn'
-        )
-
-        const currentFundedGrant = applications.find(a => a.status === 'Grant Disbursed' || a.fundingStatus?.isFundedActive)
-        
-        const awarded = applications.filter(a => a.status === 'Approved' || a.status === 'Grant Disbursed').length
-
-        setStats({
-          activeApplications: activeApplication ? 1 : 0,
-          sponsorshipsAvailable: sponsorships.length,
-          awarded: awarded
-        })
-
-        setActiveApp(activeApplication || null)
-        setActiveGrant(currentFundedGrant || null)
-      } catch (error) {
-        console.error('Failed to load dashboard data:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     fetchDashboardData()
   }, [])
 
@@ -73,6 +81,63 @@ export default function StudentDashboard() {
           Browse Opportunities
         </button>
       </div>
+
+      {/* Action Required: Sponsor Document Request Banner */}
+      {pendingDocRequests.length > 0 && (
+        <div
+          className="card"
+          style={{
+            background: '#fffaf0',
+            border: '1px solid #fef3c7',
+            borderLeft: '5px solid #d97706',
+            padding: '20px 24px',
+            marginBottom: '32px',
+            borderRadius: '12px',
+            boxShadow: '0 4px 12px rgba(217, 119, 6, 0.08)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ flex: 1, minWidth: '280px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <span style={{ fontSize: '1.25rem' }}>📑</span>
+                <h4 style={{ margin: 0, color: '#92400e', fontSize: '1.1rem', fontWeight: 700 }}>
+                  Document Request from {pendingDocRequests[0].sponsor?.name || 'Sponsor'}
+                </h4>
+                <span
+                  className="badge"
+                  style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fcd34d' }}
+                >
+                  Action Required
+                </span>
+              </div>
+              <p style={{ margin: '0 0 6px', fontSize: '0.92rem', color: '#78350f' }}>
+                <strong>Requested Documents:</strong> {pendingDocRequests[0].requestedDocuments?.join(', ')}
+              </p>
+              {pendingDocRequests[0].message && (
+                <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--color-ink-soft)', fontStyle: 'italic' }}>
+                  "{pendingDocRequests[0].message}"
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              className="primary-button"
+              style={{
+                background: '#d97706',
+                border: 'none',
+                color: '#fff',
+                fontWeight: 600,
+                padding: '12px 22px',
+                borderRadius: '8px',
+                boxShadow: '0 2px 6px rgba(217, 119, 6, 0.25)',
+              }}
+              onClick={() => setActiveUploadRequest(pendingDocRequests[0])}
+            >
+              Upload Requested Documents
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="stats-grid">
         <div className="stat-card" style={{ borderTop: '4px solid #3b82f6' }}>
@@ -117,7 +182,8 @@ export default function StudentDashboard() {
                 <strong>
                   {activeApp.status === 'Under screening' ? 'Automated Review (Fraud Engine)' :
                    activeApp.status === 'Under Admin review' ? 'Manual Admin Review' :
-                   activeApp.status === 'Under Sponsor review' ? 'Final Sponsor Review' : 'Processing'}
+                   activeApp.status === 'Under Sponsor review' ? 'Final Sponsor Review' : 
+                   activeApp.status === 'Waiting for additional information' ? 'Action Required: Submit Documents' : 'Processing'}
                 </strong>
               </div>
             </div>
@@ -211,6 +277,18 @@ export default function StudentDashboard() {
           </div>
         )}
       </div>
+
+      {/* Upload Requested Documents Modal */}
+      {activeUploadRequest && (
+        <StudentDocumentUploadModal
+          docRequest={activeUploadRequest}
+          onClose={() => setActiveUploadRequest(null)}
+          onSuccess={() => {
+            fetchDashboardData()
+            alert('Documents submitted successfully to sponsor!')
+          }}
+        />
+      )}
 
       {viewReceiptAppId && (
         <PaymentReceiptModal

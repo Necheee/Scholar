@@ -61,6 +61,8 @@ export default function StudentApplicationHistory() {
     return true
   })
 
+  const selectedProvideInfoApp = applications.find((a) => a._id === provideInfoAppId)
+
   if (isLoading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading application history...</div>
 
   return (
@@ -163,8 +165,13 @@ export default function StudentApplicationHistory() {
                           </div>
                         )}
                         {app.status === 'Waiting for additional information' && (
-                          <div style={{ fontSize: '0.8rem', color: '#b45309' }}>
+                          <div style={{ fontSize: '0.82rem', color: '#b45309' }}>
                             Action required: submit requested document
+                            {app.reasonForRequesting && (
+                              <div style={{ fontStyle: 'italic', color: '#92400e', marginTop: '2px' }}>
+                                Note: "{app.reasonForRequesting}"
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -174,7 +181,7 @@ export default function StudentApplicationHistory() {
                         {app.status === 'Waiting for additional information' && (
                           <button 
                             className="primary-button" 
-                            style={{ padding: '6px 14px', fontSize: '0.82rem' }}
+                            style={{ padding: '6px 14px', fontSize: '0.82rem', background: '#d97706', border: 'none', color: '#fff' }}
                             onClick={() => setProvideInfoAppId(app._id)}
                           >
                             Provide Info
@@ -236,6 +243,7 @@ export default function StudentApplicationHistory() {
       {provideInfoAppId && (
         <ProvideInfoModal 
           appId={provideInfoAppId}
+          reason={selectedProvideInfoApp?.reasonForRequesting}
           onClose={() => setProvideInfoAppId(null)}
           onRefresh={fetchApplications}
         />

@@ -65,14 +65,23 @@ export default function SponsorDashboard() {
           <h2>Welcome, {user?.name || 'Sponsor'}</h2>
           <p className="section-meta">Overview of your funding programs and applicant pipeline.</p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button 
+            type="button"
+            className="secondary-button" 
+            onClick={() => navigate('/sponsor/students')}
+          >
+            🔍 Students Directory
+          </button>
+          <button 
+            type="button"
             className="secondary-button" 
             onClick={() => navigate('/sponsor/transactions')}
           >
             Disbursement Ledger
           </button>
           <button 
+            type="button"
             className="primary-button" 
             onClick={() => navigate('/sponsor/opportunities')}
           >

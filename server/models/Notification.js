@@ -21,6 +21,10 @@ const notificationSchema = new mongoose.Schema({
   relatedApplication: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Application',
+  },
+  relatedDocumentRequest: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'DocumentRequest',
   }
 }, {
   timestamps: true,

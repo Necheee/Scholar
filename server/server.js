@@ -13,6 +13,7 @@ import uploadRoutes from './routes/uploadRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
+import documentRequestRoutes from './routes/documentRequestRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -43,6 +44,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/document-requests', documentRequestRoutes);
 
 // Error Handling Middlewares
 app.use(notFound);
