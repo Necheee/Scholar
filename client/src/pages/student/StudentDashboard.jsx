@@ -35,7 +35,7 @@ export default function StudentDashboard() {
           a.status !== 'Rejected' && a.status !== 'Approved' && a.status !== 'Grant Disbursed' && a.status !== 'Withdrawn'
         )
 
-        const currentFundedGrant = applications.find(a => a.fundingStatus?.isFundedActive)
+        const currentFundedGrant = applications.find(a => a.status === 'Grant Disbursed' || a.fundingStatus?.isFundedActive)
         
         const awarded = applications.filter(a => a.status === 'Approved' || a.status === 'Grant Disbursed').length
 
@@ -159,14 +159,16 @@ export default function StudentDashboard() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '0.9rem' }}>
                 <span style={{ color: 'var(--color-ink-soft)' }}>Disbursed On:</span>
-                <strong>{new Date(activeGrant.fundingStatus?.startDate || activeGrant.updatedAt).toLocaleDateString()}</strong>
+                <strong>{new Date(activeGrant.fundingStatus?.startDate || activeGrant.disbursedAt || activeGrant.updatedAt).toLocaleDateString()}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px dashed #bbf7d0', fontSize: '0.9rem' }}>
-                <span style={{ color: '#166534', fontWeight: 600 }}>Next Eligible Application Date:</span>
-                <strong style={{ color: '#15803d' }}>
-                  {new Date(activeGrant.fundingStatus?.endDate).toLocaleDateString()} ({activeGrant.fundingStatus?.daysRemaining} days left)
-                </strong>
-              </div>
+              {activeGrant.fundingStatus?.endDate && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px dashed #bbf7d0', fontSize: '0.9rem' }}>
+                  <span style={{ color: '#166534', fontWeight: 600 }}>Next Eligible Application Date:</span>
+                  <strong style={{ color: '#15803d' }}>
+                    {new Date(activeGrant.fundingStatus.endDate).toLocaleDateString()} ({activeGrant.fundingStatus?.daysRemaining || 0} days left)
+                  </strong>
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -174,7 +176,10 @@ export default function StudentDashboard() {
                 type="button"
                 className="secondary-button" 
                 style={{ borderColor: '#2e7d32', color: '#2e7d32', fontWeight: 600 }}
-                onClick={() => setViewReceiptAppId(activeGrant._id)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setViewReceiptAppId(activeGrant._id)
+                }}
               >
                 🧾 View Receipt
               </button>

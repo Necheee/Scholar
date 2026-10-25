@@ -7,6 +7,10 @@ export default function PaymentReceiptModal({ applicationId, onClose }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const resolvedId = typeof applicationId === 'object'
+    ? (applicationId?._id || applicationId?.id || applicationId?.application)
+    : applicationId
+
   // Lock body scroll while modal is active and support ESC key
   useEffect(() => {
     const origOverflow = document.body.style.overflow
@@ -26,10 +30,13 @@ export default function PaymentReceiptModal({ applicationId, onClose }) {
   }, [onClose])
 
   useEffect(() => {
+    if (!resolvedId) return
+
     async function fetchReceipt() {
       try {
         setLoading(true)
-        const { data } = await api.get(`/payments/receipt/${applicationId}`)
+        setError('')
+        const { data } = await api.get(`/payments/receipt/${resolvedId}`)
         setReceipt(data)
       } catch (err) {
         console.error('Failed to load receipt:', err)
@@ -39,12 +46,113 @@ export default function PaymentReceiptModal({ applicationId, onClose }) {
       }
     }
     fetchReceipt()
-  }, [applicationId])
+  }, [resolvedId])
+
+  // Dedicated isolated print function (ensures ONLY the receipt voucher is printed)
+  const handlePrint = (e) => {
+    if (e) e.stopPropagation()
+
+    const printableElement = document.getElementById('receipt-modal-printable')
+    if (!printableElement) {
+      window.print()
+      return
+    }
+
+    try {
+      const existingFrame = document.getElementById('receipt-hidden-print-frame')
+      if (existingFrame) {
+        existingFrame.remove()
+      }
+
+      const printFrame = document.createElement('iframe')
+      printFrame.id = 'receipt-hidden-print-frame'
+      printFrame.style.position = 'fixed'
+      printFrame.style.right = '0'
+      printFrame.style.bottom = '0'
+      printFrame.style.width = '0'
+      printFrame.style.height = '0'
+      printFrame.style.border = '0'
+      document.body.appendChild(printFrame)
+
+      const doc = printFrame.contentWindow.document
+      doc.open()
+      doc.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Disbursement Receipt - ${receipt?.reference || 'Scholar'}</title>
+            <style>
+              * { box-sizing: border-box; margin: 0; padding: 0; }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                background: #ffffff;
+                color: #0f172a;
+                padding: 24px;
+                display: flex;
+                justify-content: center;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              .receipt-print-wrapper {
+                width: 100%;
+                max-width: 540px;
+                border: 2px solid #092440;
+                border-radius: 12px;
+                overflow: hidden;
+                background: #ffffff;
+              }
+              .receipt-no-print {
+                display: none !important;
+              }
+              @page {
+                size: auto;
+                margin: 15mm;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="receipt-print-wrapper">
+              ${printableElement.innerHTML}
+            </div>
+            <script>
+              window.onload = function() {
+                window.focus();
+                window.print();
+              };
+            </script>
+          </body>
+        </html>
+      `)
+      doc.close()
+
+      setTimeout(() => {
+        try {
+          printFrame.contentWindow.focus()
+          printFrame.contentWindow.print()
+        } catch {
+          window.print()
+        }
+        setTimeout(() => {
+          if (printFrame && printFrame.parentNode) {
+            printFrame.parentNode.removeChild(printFrame)
+          }
+        }, 3000)
+      }, 350)
+    } catch {
+      window.print()
+    }
+  }
+
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose()
+    }
+  }
 
   return createPortal(
     <div 
       className="receipt-modal-overlay"
-      onClick={onClose}
+      onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
     >
@@ -201,7 +309,7 @@ export default function PaymentReceiptModal({ applicationId, onClose }) {
                 <div className="receipt-no-print" style={{ display: 'flex', gap: '12px', marginTop: '22px' }}>
                   <button
                     type="button"
-                    onClick={() => window.print()}
+                    onClick={handlePrint}
                     className="secondary-button"
                     style={{ 
                       flex: 1, 

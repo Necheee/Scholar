@@ -186,7 +186,10 @@ export default function SponsorApplications() {
                         <button 
                           type="button"
                           className="secondary-button" 
-                          onClick={() => setViewReceiptAppId(app._id)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setViewReceiptAppId(app._id)
+                          }}
                           style={{ padding: '6px 12px', fontSize: '0.82rem', borderColor: '#2e7d32', color: '#2e7d32', fontWeight: 600 }}
                         >
                           🧾 Receipt
@@ -378,7 +381,10 @@ export default function SponsorApplications() {
                   type="button"
                   className="secondary-button"
                   style={{ padding: '8px 16px', fontSize: '0.85rem', borderColor: '#2e7d32', color: '#2e7d32' }}
-                  onClick={() => setViewReceiptAppId(selectedApp._id)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setViewReceiptAppId(selectedApp._id)
+                  }}
                 >
                   View Payment Receipt
                 </button>

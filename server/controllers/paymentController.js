@@ -1,5 +1,8 @@
+import mongoose from 'mongoose';
 import Payment from '../models/Payment.js';
 import Application from '../models/Application.js';
+import Sponsorship from '../models/Sponsorship.js';
+import User from '../models/User.js';
 import StudentProfile from '../models/StudentProfile.js';
 import Notification from '../models/Notification.js';
 import ActivityLog from '../models/ActivityLog.js';
@@ -254,27 +257,41 @@ export const getPaymentReceipt = async (req, res) => {
   try {
     const { applicationId } = req.params;
 
-    const payment = await Payment.findOne({ application: applicationId })
+    let query;
+    if (mongoose.Types.ObjectId.isValid(applicationId)) {
+      query = {
+        $or: [
+          { application: applicationId },
+          { _id: applicationId }
+        ]
+      };
+    } else {
+      query = { reference: applicationId };
+    }
+
+    const payment = await Payment.findOne(query)
+      .sort({ createdAt: -1 })
       .populate('sponsor', 'name email')
       .populate('student', 'name email')
       .populate('sponsorship', 'title grantAmount duration');
 
     if (!payment) {
-      return res.status(404).json({ message: 'No payment record found for this application' });
+      return res.status(404).json({ message: 'No payment record found for this application or reference' });
     }
 
-    // Ensure only involved parties or Admin can access
+    // Ensure only involved parties, Sponsor, or Admin can access
     const userId = req.user._id.toString();
     const isOwner = 
-      (payment.sponsor?._id ? payment.sponsor._id.toString() === userId : false) || 
-      (payment.student?._id ? payment.student._id.toString() === userId : false) || 
-      req.user.role === 'Admin';
+      (payment.sponsor?._id ? payment.sponsor._id.toString() === userId : payment.sponsor?.toString() === userId) || 
+      (payment.student?._id ? payment.student._id.toString() === userId : payment.student?.toString() === userId) || 
+      req.user.role === 'Admin' ||
+      req.user.role === 'Sponsor';
 
     if (!isOwner) {
       return res.status(403).json({ message: 'Not authorized to view this receipt' });
     }
 
-    const studentProfile = await StudentProfile.findOne({ user: payment.student?._id });
+    const studentProfile = await StudentProfile.findOne({ user: payment.student?._id || payment.student });
 
     res.json({
       ...payment.toObject(),

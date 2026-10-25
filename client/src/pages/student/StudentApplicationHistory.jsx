@@ -207,7 +207,10 @@ export default function StudentApplicationHistory() {
                           <button 
                             type="button"
                             className="secondary-button" 
-                            onClick={() => setViewReceiptAppId(app._id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setViewReceiptAppId(app._id)
+                            }}
                             style={{ padding: '6px 14px', fontSize: '0.82rem', borderColor: '#2e7d32', color: '#2e7d32', fontWeight: 600 }}
                           >
                             ✓ Grant Disbursed (Receipt)

@@ -150,7 +150,11 @@ export default function SponsorTransactions() {
                           type="button"
                           className="secondary-button"
                           style={{ padding: '5px 12px', fontSize: '0.8rem' }}
-                          onClick={() => setActiveReceiptAppId(tx.application?._id || tx.application)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const id = tx.application?._id || tx.application || tx._id
+                            setActiveReceiptAppId(id)
+                          }}
                         >
                           View Receipt
                         </button>
