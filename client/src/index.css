@@ -123,3 +123,120 @@ html, body, #root {
   border: 1px solid #bbdefb;
 }
 
+/* ========================================================
+   Receipt Modal Overlay & Popup Keyframes
+   ======================================================== */
+@keyframes receiptFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes receiptPopUp {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.receipt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 999999;
+  animation: receiptFadeIn 0.22s ease-out forwards;
+  overflow-y: auto;
+}
+
+.receipt-modal-card {
+  background: #ffffff;
+  width: 100%;
+  max-width: 540px;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.45);
+  position: relative;
+  animation: receiptPopUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  margin: auto;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* ========================================================
+   Disbursement Receipt Isolated Print Styles
+   ======================================================== */
+@media print {
+  /* Hide all background layout, sidebar, tables, and nav */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Make ONLY the printable receipt card and its children visible */
+  #receipt-modal-printable,
+  #receipt-modal-printable * {
+    visibility: visible !important;
+  }
+
+  /* Strip dark backdrop overlay for physical paper / PDF */
+  .receipt-modal-overlay {
+    position: static !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Anchor receipt card to top-center of printed paper */
+  #receipt-modal-printable {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+    border: 2px solid #0f172a !important;
+    border-radius: 10px !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Hide buttons, close icon, or any UI controls marked as no-print */
+  .receipt-no-print {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Ensure background colors and gradients print accurately */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    size: auto;
+    margin: 12mm 15mm;
+  }
+}
+

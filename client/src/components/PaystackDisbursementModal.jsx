@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import api from '../services/api'
 
 export default function PaystackDisbursementModal({ application, onClose, onSuccess }) {
@@ -120,7 +121,7 @@ export default function PaystackDisbursementModal({ application, onClose, onSucc
     }
   }
 
-  return (
+  return createPortal(
     <>
       {/* Floating Escape Button (renders above Paystack's iframe so sponsor can cancel/close anytime) */}
       {isPaystackOpen && (
@@ -355,6 +356,7 @@ export default function PaystackDisbursementModal({ application, onClose, onSucc
           </div>
         </div>
       )}
-    </>
+    </>,
+    document.body
   )
 }

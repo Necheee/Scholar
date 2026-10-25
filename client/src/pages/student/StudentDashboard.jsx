@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
+import PaymentReceiptModal from '../../components/PaymentReceiptModal'
 
 export default function StudentDashboard() {
   const navigate = useNavigate()
@@ -16,6 +17,7 @@ export default function StudentDashboard() {
   const [activeApp, setActiveApp] = useState(null)
   const [activeGrant, setActiveGrant] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [viewReceiptAppId, setViewReceiptAppId] = useState(null)
 
   useEffect(() => {
     async function fetchDashboardData() {
@@ -167,12 +169,20 @@ export default function StudentDashboard() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <button 
+                type="button"
+                className="secondary-button" 
+                style={{ borderColor: '#2e7d32', color: '#2e7d32', fontWeight: 600 }}
+                onClick={() => setViewReceiptAppId(activeGrant._id)}
+              >
+                🧾 View Receipt
+              </button>
               <button 
                 className="secondary-button" 
                 onClick={() => navigate('/student/history')}
               >
-                View History & Receipt
+                Full History
               </button>
               <button 
                 className="primary-button" 
@@ -196,6 +206,13 @@ export default function StudentDashboard() {
           </div>
         )}
       </div>
+
+      {viewReceiptAppId && (
+        <PaymentReceiptModal
+          applicationId={viewReceiptAppId}
+          onClose={() => setViewReceiptAppId(null)}
+        />
+      )}
     </div>
   )
 }
