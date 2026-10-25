@@ -85,7 +85,7 @@ export default function AdminUsers() {
           <div>
             <h3>User Management</h3>
             <p className="section-meta">
-              Oversee platform accounts, inspect credentials, and manage multi-role system access (Chapter 3.2.2.1 Use Case & Class Diagram).
+              Oversee platform accounts, inspect credentials, and manage multi-role system access.
             </p>
           </div>
         </div>

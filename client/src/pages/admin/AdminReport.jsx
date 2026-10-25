@@ -205,13 +205,13 @@ export default function AdminReport() {
         </div>
       </div>
 
-      {/* Academic Project Metadata Footer */}
+      {/* System Verification Note */}
       <div className="card wide" style={{ backgroundColor: '#f8fafc', padding: '20px' }}>
         <h4 style={{ margin: '0 0 8px 0', fontSize: '1rem', color: 'var(--color-ink)' }}>
-          Research & Project Verification Note
+          System Audit & Verification Note
         </h4>
         <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-ink-soft)', lineHeight: '1.6' }}>
-          This report verifies the functional execution of the <strong>Scholar</strong> platform developed in accordance with the specification in <em>Chapters 1 through 3</em> (University of Nigeria, Nsukka, Department of Computer Science). All fraud detection rules, role-based workflows, and Paystack financial transactions are logged cryptographically.
+          This report verifies the functional execution of the <strong>Scholar</strong> platform. All fraud detection rules, role-based workflows, and Paystack financial transactions are logged cryptographically.
         </p>
       </div>
     </div>

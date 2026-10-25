@@ -59,7 +59,7 @@ const checkDuplicateApplications = async (application) => {
   return null;
 };
 
-// Planned Rule from Chapter 1.7, 3.4.3 & 3.4.5 Document Table (file_hash)
+// Rule: Reused Document Cryptographic SHA-256 Hash Matching
 // Detects forged, duplicated, or shared credential documents across applicants
 const checkReusedDocuments = async (application) => {
   if (!application.documents || application.documents.length === 0) {
@@ -93,7 +93,7 @@ const checkReusedDocuments = async (application) => {
   return null;
 };
 
-// Planned Rule from Chapter 1.7 (P66) & 3.4.3 (P154)
+// Rule: Multiple Accounts Detection
 // Detects if a student operates multiple accounts to submit duplicate applications
 const checkMultipleAccounts = async (application, studentProfile) => {
   if (!studentProfile || !studentProfile.institution || !studentProfile.department) {
@@ -129,7 +129,7 @@ const checkMultipleAccounts = async (application, studentProfile) => {
   return null;
 };
 
-// Planned Rule from Chapter 1.7 (P65) & 3.4.3 (P154)
+// Rule: Conflicting Financial Information
 // Detects conflicting financial declarations (e.g. claiming zero aid while actively receiving funding)
 const checkConflictingFinancialInfo = async (application) => {
   // Find any active or previously disbursed grants for this student

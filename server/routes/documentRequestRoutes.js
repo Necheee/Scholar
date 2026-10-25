@@ -17,3 +17,4 @@ router.put('/:id/submit', protect, authorize('Student'), submitRequestedDocument
 router.get('/:id', protect, getDocumentRequestById);
 
 export default router;
+

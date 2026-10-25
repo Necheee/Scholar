@@ -141,7 +141,7 @@ export default function RequestDocumentsModal({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
               <span style={{ fontSize: '1.2rem' }}>📑</span>
               <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--color-ink)' }}>
-                Reach Out for Necessary Documents
+                Request More Documents
               </h3>
             </div>
             <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--color-ink-soft)' }}>
@@ -365,3 +365,4 @@ export default function RequestDocumentsModal({
     document.body
   )
 }
+

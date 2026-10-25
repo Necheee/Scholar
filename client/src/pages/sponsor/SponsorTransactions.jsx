@@ -36,7 +36,7 @@ export default function SponsorTransactions() {
           <div>
             <h3>Wallet & Disbursement Transactions</h3>
             <p className="section-meta">
-              Official financial ledger of tuition grants disbursed via Paystack (Chapter 3.4.2 & 3.4.5 Wallet/Transaction).
+              Official financial ledger of tuition grants disbursed via Paystack.
             </p>
           </div>
           <button type="button" className="secondary-button" onClick={fetchTransactions}>

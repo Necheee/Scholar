@@ -306,7 +306,7 @@ export const getPaymentReceipt = async (req, res) => {
 /**
  * @desc    Get all disbursement transactions / wallet history for the logged-in sponsor
  * @route   GET /api/payments/my-transactions
- * @access  Private (Sponsor only) - Satisfies Chapter 3.4.2 & 3.4.5 Wallet/Transaction
+ * @access  Private (Sponsor only)
  */
 export const getSponsorTransactions = async (req, res) => {
   try {

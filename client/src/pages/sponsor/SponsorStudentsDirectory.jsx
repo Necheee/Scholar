@@ -161,7 +161,7 @@ export default function SponsorStudentsDirectory() {
         </div>
       </div>
 
-      {/* Privacy Notice Banner according to Section 10 */}
+      {/* Student Privacy Notice Banner */}
       <div
         style={{
           padding: '14px 18px',
@@ -178,7 +178,7 @@ export default function SponsorStudentsDirectory() {
       >
         <span style={{ fontSize: '1.2rem' }}>🔒</span>
         <div>
-          <strong>Student Privacy Guard:</strong> This directory displays academic highlights. As a registered sponsor, you can click <strong>"Reach Out for Documents"</strong> to directly request official transcripts, student ID, and verification records from candidates.
+          <strong>Student Privacy Guard:</strong> This directory displays academic highlights. As a registered sponsor, you can click <strong>"Request More"</strong> on any student to directly request official transcripts, student ID, and verification records.
         </div>
       </div>
 
@@ -299,7 +299,7 @@ export default function SponsorStudentsDirectory() {
                       style={{ flex: 1, padding: '8px 12px', fontSize: '0.85rem' }}
                       onClick={() => setSelectedStudent(student)}
                     >
-                      View Profile
+                      {hasSubmitted ? 'View Profile & Docs' : 'View Profile'}
                     </button>
                     <button
                       type="button"
@@ -312,7 +312,7 @@ export default function SponsorStudentsDirectory() {
                       }}
                       onClick={() => setRequestDocStudent(student)}
                     >
-                      {hasSubmitted ? 'Review Docs' : isPending ? 'Request More' : 'Reach Out / Request Docs'}
+                      Request More
                     </button>
                   </div>
                 </div>
@@ -565,9 +565,7 @@ export default function SponsorStudentsDirectory() {
                   setRequestDocStudent(studentToRequest)
                 }}
               >
-                {selectedStudent.documentRequest?.status === 'Submitted'
-                  ? 'Request Additional Documents'
-                  : 'Reach Out for Documents'}
+                Request More Documents
               </button>
             </div>
           </div>

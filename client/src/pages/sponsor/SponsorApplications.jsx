@@ -327,7 +327,7 @@ export default function SponsorApplications() {
                     style={{ background: '#d97706', color: '#fff', border: 'none', flex: 1.4, minWidth: '160px', padding: '12px', borderRadius: '8px', fontWeight: 600 }} 
                     onClick={() => setRequestDocApp(selectedApp)}
                   >
-                    📑 Request Necessary Documents
+                    📑 Request More Documents
                   </button>
                   <button 
                     className="primary-button" 
@@ -349,6 +349,26 @@ export default function SponsorApplications() {
                     💳 Approve & Disburse
                   </button>
                 </div>
+              </div>
+            )}
+
+            {selectedApp.status === 'Waiting for additional information' && (
+              <div style={{ background: '#fffaf0', border: '1px solid #fde68a', padding: '18px 20px', borderRadius: '10px', marginTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+                <div>
+                  <h4 style={{ margin: '0 0 4px', color: '#92400e', fontSize: '1rem' }}>⏳ Waiting for Student Documents</h4>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#78350f' }}>
+                    Additional verification documents were requested from this applicant.
+                    {selectedApp.reasonForRequesting && ` Note: "${selectedApp.reasonForRequesting}"`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="primary-button"
+                  style={{ background: '#d97706', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 600 }}
+                  onClick={() => setRequestDocApp(selectedApp)}
+                >
+                  Request More Documents
+                </button>
               </div>
             )}
             

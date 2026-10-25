@@ -310,7 +310,7 @@ export default function StudentProfile() {
           )}
         </section>
 
-        {/* Settlement Bank Details (NUBAN) - Chapter 3.4.5 Table 3.2 */}
+        {/* Settlement Bank Details (NUBAN) */}
         <section className="profile-section card" style={{ borderLeft: '4px solid #16a34a' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <h3 style={{ margin: 0 }}>Disbursement Bank Account (NUBAN)</h3>

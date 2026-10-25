@@ -12,8 +12,7 @@ export const uploadDocument = async (req, res, next) => {
       throw new Error('No file uploaded');
     }
 
-    // Compute SHA-256 cryptographic hash of the uploaded document buffer
-    // Satisfies Chapter 3.4.5 Document Table file_hash attribute & fraud detection
+    // Compute SHA-256 cryptographic hash of the uploaded document buffer for fraud detection
     const fileHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
 
     // Determine the folder based on the student's ID for better organization

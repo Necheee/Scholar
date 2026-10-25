@@ -54,3 +54,4 @@ const documentRequestSchema = new mongoose.Schema({
 
 const DocumentRequest = mongoose.model('DocumentRequest', documentRequestSchema);
 export default DocumentRequest;
+

@@ -6,7 +6,7 @@ import Sponsorship from '../models/Sponsorship.js';
 import { createNotification } from '../services/notificationService.js';
 import { logActivity } from '../services/activityService.js';
 
-// Verified showcase profiles according to Section 10 of Vision
+// Verified showcase student directory profiles
 const showcaseProfiles = [
   {
     name: 'David Adeleke',
@@ -405,3 +405,4 @@ export const getDocumentRequestById = async (req, res, next) => {
     next(error);
   }
 };
+

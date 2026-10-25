@@ -4,7 +4,7 @@ const documentSchema = new mongoose.Schema({
   type: { type: String, required: true }, // e.g., 'Transcript', 'ID'
   cloudinaryUrl: { type: String, required: true },
   cloudinaryId: { type: String, required: true },
-  fileHash: { type: String }, // Cryptographic SHA-256 hash for fraud detection (Chapter 3.4.5 Document.file_hash)
+  fileHash: { type: String }, // Cryptographic SHA-256 hash for fraud detection
 });
 
 const applicationSchema = new mongoose.Schema({
