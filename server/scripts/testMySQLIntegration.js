@@ -140,7 +140,7 @@ async function runTests() {
           {
             name: 'WAEC Certificate',
             type: 'WAEC Certificate',
-            cloudinaryUrl: 'https://res.cloudinary.com/demo/image/upload/sample_waec.pdf',
+            cloudinaryUrl: 'https://res.cloudinary.com/demo/image/upload/sample.pdf',
             cloudinaryId: 'waec_123',
             fileHash: 'a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0',
           },
@@ -152,6 +152,9 @@ async function runTests() {
     await docReqCtrl.submitRequestedDocuments(subReq, subRes, subNext);
     assert(subRes.data.status === 'Submitted', 'Document request status transitioned to Submitted');
     assert(subRes.data.submittedDocuments?.length === 1, 'Submitted document stored in relational table');
+
+    // Clean up test document request so database stays pristine for user testing
+    await prisma.documentRequest.delete({ where: { id: createdReq.id } });
 
     // 7. Test Admin Flagged Queue & Dashboard Stats
     console.log('\n[TEST 7] Testing Admin Review Queue & Dashboard Stats');
