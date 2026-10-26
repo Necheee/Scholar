@@ -1,18 +1,27 @@
-import ActivityLog from '../models/ActivityLog.js';
-import Application from '../models/Application.js';
-import User from '../models/User.js';
-import Sponsorship from '../models/Sponsorship.js';
-import FraudResult from '../models/FraudResult.js';
-import Payment from '../models/Payment.js';
+import prisma from '../config/db.js';
 import { logActivity } from '../services/activityService.js';
+import { formatApplication } from './applicationController.js';
 
 // @desc    Get all activity logs
 // @route   GET /api/admin/activity
 // @access  Private/Admin
 export const getActivityLogs = async (req, res, next) => {
   try {
-    const logs = await ActivityLog.find().sort({ createdAt: -1 }).limit(100).populate('user', 'name email');
-    res.json(logs);
+    const logs = await prisma.activityLog.findMany({
+      take: 100,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    const formatted = logs.map((log) => ({
+      ...log,
+      _id: log.id,
+      user: log.user ? { ...log.user, _id: log.user.id } : log.userId,
+    }));
+
+    res.json(formatted);
   } catch (error) {
     next(error);
   }
@@ -23,11 +32,17 @@ export const getActivityLogs = async (req, res, next) => {
 // @access  Private/Admin
 export const getInformationRequests = async (req, res, next) => {
   try {
-    const requests = await Application.find({ status: 'Waiting for additional information' })
-      .populate('student', 'name email')
-      .populate('sponsorship', 'title')
-      .sort({ updatedAt: -1 });
-    res.json(requests);
+    const requests = await prisma.application.findMany({
+      where: { status: 'Waiting for additional information' },
+      include: {
+        student: { select: { id: true, name: true, email: true } },
+        sponsorship: { select: { id: true, title: true } },
+        documents: true,
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    res.json(requests.map(formatApplication));
   } catch (error) {
     next(error);
   }
@@ -35,25 +50,42 @@ export const getInformationRequests = async (req, res, next) => {
 
 // @desc    Manage Users: Get all system users (Students, Sponsors, Admins)
 // @route   GET /api/admin/users
-// @access  Private/Admin (Use Case 3.2.2.1 & Class Diagram 3.4.2 manageUsers)
+// @access  Private/Admin
 export const getUsers = async (req, res, next) => {
   try {
     const { role, search } = req.query;
-    let query = {};
+    let whereClause = {};
 
     if (role && ['Student', 'Sponsor', 'Admin'].includes(role)) {
-      query.role = role;
+      whereClause.role = role;
     }
 
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
+      whereClause.OR = [
+        { name: { contains: search } },
+        { email: { contains: search } },
       ];
     }
 
-    const users = await User.find(query).select('-password').sort({ createdAt: -1 });
-    res.json(users);
+    const users = await prisma.user.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const formatted = users.map((u) => ({
+      ...u,
+      _id: u.id,
+    }));
+
+    res.json(formatted);
   } catch (error) {
     next(error);
   }
@@ -64,28 +96,36 @@ export const getUsers = async (req, res, next) => {
 // @access  Private/Admin
 export const deleteUser = async (req, res, next) => {
   try {
-    const userToDelete = await User.findById(req.params.id);
+    const currentAdminId = req.user.id || req.user._id;
+    const userToDelete = await prisma.user.findUnique({
+      where: { id: req.params.id },
+    });
+
     if (!userToDelete) {
       res.status(404);
       throw new Error('User not found');
     }
 
     // Safety check: Admin cannot delete their own account
-    if (userToDelete._id.toString() === req.user._id.toString()) {
+    if (userToDelete.id === currentAdminId) {
       res.status(400);
       throw new Error('You cannot delete your own administrator account');
     }
 
-    await User.findByIdAndDelete(req.params.id);
+    await prisma.user.delete({
+      where: { id: req.params.id },
+    });
 
     await logActivity(
       'Admin Deleted User',
       `Admin removed user account: ${userToDelete.name} (${userToDelete.email}) - Role: ${userToDelete.role}`,
-      req.user._id,
+      currentAdminId,
       'Admin'
     );
 
-    res.json({ message: `User ${userToDelete.name} (${userToDelete.email}) was removed successfully` });
+    res.json({
+      message: `User ${userToDelete.name} (${userToDelete.email}) was removed successfully`,
+    });
   } catch (error) {
     next(error);
   }
@@ -102,22 +142,32 @@ export const getAdminDashboardStats = async (req, res, next) => {
       totalUsersCount,
       totalApplicationsCount,
       successfulPayments,
-      recentPendingApps
+      recentPendingApps,
     ] = await Promise.all([
-      Application.countDocuments({ status: 'Under Admin review' }),
-      Application.countDocuments({ fraudReviewStatus: 'Flagged' }),
-      User.countDocuments(),
-      Application.countDocuments(),
-      Payment.find({ status: 'Success' }).select('amount').lean(),
-      Application.find({ status: 'Under Admin review' })
-        .populate('student', 'name email')
-        .populate('sponsorship', 'title')
-        .sort({ updatedAt: -1 })
-        .limit(5)
-        .lean()
+      prisma.application.count({ where: { status: 'Under Admin review' } }),
+      prisma.application.count({ where: { fraudReviewStatus: 'Flagged' } }),
+      prisma.user.count(),
+      prisma.application.count(),
+      prisma.payment.findMany({
+        where: { status: 'Success' },
+        select: { amount: true },
+      }),
+      prisma.application.findMany({
+        where: { status: 'Under Admin review' },
+        include: {
+          student: { select: { id: true, name: true, email: true } },
+          sponsorship: { select: { id: true, title: true } },
+          documents: true,
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 5,
+      }),
     ]);
 
-    const totalDisbursedAmount = successfulPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const totalDisbursedAmount = successfulPayments.reduce(
+      (sum, p) => sum + (p.amount || 0),
+      0
+    );
 
     res.json({
       flaggedPending: flaggedPendingCount,
@@ -125,7 +175,7 @@ export const getAdminDashboardStats = async (req, res, next) => {
       totalUsers: totalUsersCount,
       totalApplications: totalApplicationsCount,
       totalDisbursedAmount,
-      recentFlagged: recentPendingApps
+      recentFlagged: recentPendingApps.map(formatApplication),
     });
   } catch (error) {
     next(error);
@@ -134,7 +184,7 @@ export const getAdminDashboardStats = async (req, res, next) => {
 
 // @desc    Generate Report: Aggregate statistical summary of system operations
 // @route   GET /api/admin/report
-// @access  Private/Admin (Use Case 3.2.2.1 & Class Diagram 3.4.2 generateReport)
+// @access  Private/Admin
 export const getSystemReport = async (req, res, next) => {
   try {
     const [
@@ -157,35 +207,44 @@ export const getSystemReport = async (req, res, next) => {
       highRiskFlags,
       mediumRiskFlags,
       lowRiskFlags,
-      passedCleanCount
+      passedCleanCount,
     ] = await Promise.all([
-      User.countDocuments(),
-      User.countDocuments({ role: 'Student' }),
-      User.countDocuments({ role: 'Sponsor' }),
-      User.countDocuments({ role: 'Admin' }),
-      Sponsorship.countDocuments(),
-      Sponsorship.countDocuments({ status: 'Open' }),
-      Sponsorship.countDocuments({ status: 'Closed' }),
-      Application.countDocuments(),
-      Application.countDocuments({ status: 'Approved' }),
-      Application.countDocuments({ status: 'Grant Disbursed' }),
-      Application.countDocuments({ status: 'Rejected' }),
-      Application.countDocuments({ status: 'Under Admin review' }),
-      Application.countDocuments({ status: 'Under Sponsor review' }),
-      Application.countDocuments({ status: 'Waiting for additional information' }),
-      Payment.find({ status: 'Success' }).select('amount').lean(),
-      Application.countDocuments({ fraudReviewStatus: 'Flagged' }),
-      FraudResult.countDocuments({ overallRisk: 'High' }),
-      FraudResult.countDocuments({ overallRisk: 'Medium' }),
-      FraudResult.countDocuments({ overallRisk: 'Low' }),
-      Application.countDocuments({ fraudReviewStatus: 'Passed' })
+      prisma.user.count(),
+      prisma.user.count({ where: { role: 'Student' } }),
+      prisma.user.count({ where: { role: 'Sponsor' } }),
+      prisma.user.count({ where: { role: 'Admin' } }),
+      prisma.sponsorship.count(),
+      prisma.sponsorship.count({ where: { status: 'Active' } }),
+      prisma.sponsorship.count({ where: { status: 'Closed' } }),
+      prisma.application.count(),
+      prisma.application.count({ where: { status: 'Approved' } }),
+      prisma.application.count({ where: { status: 'Grant Disbursed' } }),
+      prisma.application.count({ where: { status: 'Rejected' } }),
+      prisma.application.count({ where: { status: 'Under Admin review' } }),
+      prisma.application.count({ where: { status: 'Under Sponsor review' } }),
+      prisma.application.count({
+        where: { status: 'Waiting for additional information' },
+      }),
+      prisma.payment.findMany({
+        where: { status: 'Success' },
+        select: { amount: true },
+      }),
+      prisma.application.count({ where: { fraudReviewStatus: 'Flagged' } }),
+      prisma.fraudResult.count({ where: { overallRisk: 'High' } }),
+      prisma.fraudResult.count({ where: { overallRisk: 'Medium' } }),
+      prisma.fraudResult.count({ where: { overallRisk: 'Low' } }),
+      prisma.application.count({ where: { fraudReviewStatus: 'Passed' } }),
     ]);
 
-    const totalDisbursedAmount = successfulPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const totalDisbursedAmount = successfulPayments.reduce(
+      (sum, p) => sum + (p.amount || 0),
+      0
+    );
 
     res.json({
       generatedAt: new Date(),
-      systemName: 'Scholar - Secure Student Sponsorship Management System with Rule-Based Fraud Detection',
+      systemName:
+        'Scholar - Secure Student Sponsorship Management System with Rule-Based Fraud Detection',
       users: {
         total: totalUsers,
         students: studentCount,

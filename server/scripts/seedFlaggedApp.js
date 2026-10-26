@@ -1,124 +1,129 @@
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import connectDB from '../config/db.js';
-import User from '../models/User.js';
-import StudentProfile from '../models/StudentProfile.js';
-import Sponsorship from '../models/Sponsorship.js';
-import Application from '../models/Application.js';
-import { runFraudDetection } from '../services/fraudDetectionService.js';
-
 dotenv.config();
+import bcrypt from 'bcrypt';
+import prisma from '../config/db.js';
+import { runFraudDetection } from '../services/fraudDetectionService.js';
 
 const seedFlaggedApplication = async () => {
   try {
-    await connectDB();
     console.log('--- Seeding Flagged Application for Testing ---');
 
+    const salt = await bcrypt.genSalt(10);
+    const sponsorPassword = await bcrypt.hash('SponsorPassword123!', salt);
+    const studentPassword = await bcrypt.hash('StudentPassword123!', salt);
+    const adminPassword = await bcrypt.hash('AdminPassword123!', salt);
+
     // 1. Create or Find Sponsor
-    let sponsor = await User.findOne({ email: 'sponsor@scholar.edu' });
-    if (!sponsor) {
-      sponsor = await User.create({
+    const sponsor = await prisma.user.upsert({
+      where: { email: 'sponsor@scholar.edu' },
+      create: {
         name: 'TechForward Foundation',
         email: 'sponsor@scholar.edu',
-        password: 'SponsorPassword123!',
+        password: sponsorPassword,
         role: 'Sponsor',
-      });
-      console.log('Created test Sponsor:', sponsor.email);
-    }
+      },
+      update: {},
+    });
 
     // 2. Create or Find Student
-    let student = await User.findOne({ email: 'david.adeleke@scholar.edu' });
-    if (!student) {
-      student = await User.create({
+    const student = await prisma.user.upsert({
+      where: { email: 'david.adeleke@scholar.edu' },
+      create: {
         name: 'David Adeleke',
         email: 'david.adeleke@scholar.edu',
-        password: 'StudentPassword123!',
+        password: studentPassword,
         role: 'Student',
-      });
-      console.log('Created test Student:', student.email);
-    }
+      },
+      update: {},
+    });
 
-    // 3. Ensure Student Profile has official academic records matching directory (Electrical Electronics, 400-level, Covenant University)
-    let profile = await StudentProfile.findOne({ user: student._id });
-    const officialRecord = {
-      session: '2025/2026',
-      programme: 'Electrical Electronics',
-      level: '400-level',
-      info: 'Regular full-time student in good standing'
-    };
-
-    if (!profile) {
-      profile = await StudentProfile.create({
-        user: student._id,
+    // 3. Ensure Student Profile has official academic records matching directory
+    const profile = await prisma.studentProfile.upsert({
+      where: { userId: student.id },
+      create: {
+        userId: student.id,
         institution: 'Covenant University',
         department: 'Electrical Engineering',
         seekingSponsorship: true,
-        academicRecords: [officialRecord]
-      });
-      console.log('Created verified StudentProfile (Covenant University, Electrical Electronics, 400-level)');
-    } else {
-      profile.institution = 'Covenant University';
-      profile.department = 'Electrical Engineering';
-      profile.academicRecords = [officialRecord];
-      await profile.save();
-      console.log('Updated verified StudentProfile to match Covenant University directory records');
-    }
+      },
+      update: {
+        institution: 'Covenant University',
+        department: 'Electrical Engineering',
+        seekingSponsorship: true,
+      },
+    });
+
+    await prisma.academicRecord.deleteMany({
+      where: { studentProfileId: profile.id },
+    });
+
+    await prisma.academicRecord.create({
+      data: {
+        studentProfileId: profile.id,
+        session: '2025/2026',
+        programme: 'Electrical Electronics',
+        level: '400 Level',
+        info: 'Regular full-time student in good standing',
+      },
+    });
 
     // Ensure Admin exists
-    let admin = await User.findOne({ email: 'admin@scholar.edu' });
-    if (!admin) {
-      admin = await User.create({
+    await prisma.user.upsert({
+      where: { email: 'admin@scholar.edu' },
+      create: {
         name: 'System Admin',
         email: 'admin@scholar.edu',
-        password: 'AdminPassword123!',
+        password: adminPassword,
         role: 'Admin',
-      });
-      console.log('Created Admin user: admin@scholar.edu');
-    }
+      },
+      update: {},
+    });
 
     // 4. Create Sponsorship Opportunity
-    let sponsorship = await Sponsorship.findOne({ sponsor: sponsor._id, title: 'STEM Excellence Grant 2026' });
-    if (!sponsorship) {
-      sponsorship = await Sponsorship.create({
-        sponsor: sponsor._id,
+    const sponsorship = await prisma.sponsorship.upsert({
+      where: { id: 'sponsorship-stem-2026' },
+      create: {
+        id: 'sponsorship-stem-2026',
+        sponsorId: sponsor.id,
         title: 'STEM Excellence Grant 2026',
         description: 'Annual scholarship for outstanding STEM students.',
         eligibilityRequirements: 'Undergraduate STEM students with 3.5+ CGPA',
         academicRequirements: 'Must be enrolled in an accredited university in Nigeria',
+        requiredDocuments: JSON.stringify(['Transcript', 'ID Card']),
         duration: '1 Academic Session',
         applicationDeadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        status: 'Active'
-      });
-      console.log('Created test Sponsorship opportunity');
-    }
+        status: 'Active',
+      },
+      update: {},
+    });
 
     // 5. Remove any existing active application for this student to bypass 1-active rule
-    await Application.deleteMany({ student: student._id });
+    await prisma.application.deleteMany({
+      where: { studentId: student.id },
+    });
 
     // 6. Submit Application with deliberate discrepancy:
-    // Claims 'Software Engineering' and '400-level' instead of 'Computer Science' and '300-level'
     console.log('Creating application with intentional academic inconsistency...');
-    const application = await Application.create({
-      student: student._id,
-      sponsorship: sponsorship._id,
-      status: 'Under screening',
-      academicInfoSnapshot: {
-        session: '2025/2026',
-        programme: 'Computer Science', // Mismatch against official Electrical Electronics!
-        level: '300-level'             // Mismatch against official 400-level!
+    const application = await prisma.application.create({
+      data: {
+        studentId: student.id,
+        sponsorshipId: sponsorship.id,
+        status: 'Under screening',
+        academicSession: '2025/2026',
+        academicProgramme: 'Computer Science', // Mismatch against official Electrical Electronics!
+        academicLevel: '300-level',            // Mismatch against official 400 Level!
+        reasonForRequesting: 'I require financial assistance to complete my senior project in distributed computing.',
       },
-      reasonForRequesting: 'I require financial assistance to complete my senior project in distributed computing.',
-      documents: []
     });
 
     // 7. Trigger the rule engine
-    console.log('Executing runFraudDetection on application ID:', application._id);
-    const evaluated = await runFraudDetection(application._id);
+    console.log('Executing runFraudDetection on application ID:', application.id);
+    const evaluated = await runFraudDetection(application.id);
 
     console.log('\n====================================================');
     console.log(' FLAG CREATION COMPLETE!');
     console.log('====================================================');
-    console.log(`• Application ID:     ${evaluated._id}`);
+    console.log(`• Application ID:     ${evaluated.id}`);
     console.log(`• Fraud Review Status: ${evaluated.fraudReviewStatus}`);
     console.log(`• Application Status:  ${evaluated.status}`);
     console.log('\nYou can now open your browser and navigate to:');
@@ -134,4 +139,3 @@ const seedFlaggedApplication = async () => {
 };
 
 seedFlaggedApplication();
-

@@ -22,7 +22,7 @@
 - ✅ **Phase 3:** Student Interface (Dashboard, Application Form, History, Profile)
 - ✅ **Phase 4:** Sponsor Interface (Dashboard, Opportunities, Application Review, Student Directory)
 - ✅ **Phase 5:** Admin Interface (Dashboard, Flagged Applications, etc.)
-- ✅ **Phase 6:** Backend Integration (MongoDB, JWT Auth, Cloudinary Uploads)
+- ✅ **Phase 6:** Backend Integration (MySQL via Prisma ORM, JWT Auth, Cloudinary Uploads)
 
 ### Phase 6 Completion (Complete)
 
@@ -30,7 +30,7 @@
 - ✅ Flagged Applications Review Interface
 - ✅ Information Requests, Activity, Notifications, Profile (Mock Views)
 - ✅ Integration with fraud detection mock logic
-- ✅ Backend Foundation (Node.js/Express, MongoDB)
+- ✅ Backend Foundation (Node.js/Express, MySQL via Prisma)
 - ✅ Database Models
 - ✅ Custom JWT Authentication
 - ✅ Sponsorship & Applications REST API
@@ -40,7 +40,7 @@
 
 ### What Works Now
 
-- **Full Stack:** React frontend is fully integrated with the Node.js/MongoDB REST API, including secure file uploads to Cloudinary and role-based JWT authentication.
+- **Full Stack:** React frontend is fully integrated with the Node.js/MySQL REST API, including secure file uploads to Cloudinary and role-based JWT authentication.
 
 ### Phase G: Frontend Integration & Notifications
 

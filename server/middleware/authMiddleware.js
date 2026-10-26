@@ -1,11 +1,11 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+import prisma from '../config/db.js';
 
 // Protect routes - requires a valid JWT token
 const protect = async (req, res, next) => {
   let token;
 
-  token = req.cookies?.jwt; // Assuming cookie-parser will be used
+  token = req.cookies?.jwt;
 
   // Fallback for Bearer token if not using cookies
   if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
@@ -22,16 +22,28 @@ const protect = async (req, res, next) => {
     }
 
     try {
-      req.user = await User.findById(decoded.userId).select('-password');
-      if (!req.user) {
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      if (!user) {
         res.status(401);
         return next(new Error('User account not found'));
       }
+      req.user = user;
       next();
     } catch (dbError) {
       console.error('Database query error in authMiddleware:', dbError.message);
       res.status(503);
-      return next(new Error('Database service unavailable. Please check your MongoDB Atlas connection and IP whitelist.'));
+      return next(new Error('Database service unavailable. Please check your MySQL database connection.'));
     }
   } else {
     res.status(401);
@@ -52,4 +64,3 @@ const authorize = (...roles) => {
 };
 
 export { protect, authorize };
-

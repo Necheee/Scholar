@@ -18,7 +18,7 @@ import documentRequestRoutes from './routes/documentRequestRoutes.js';
 // Load environment variables
 dotenv.config();
 
-// Connect to MongoDB
+// Connect to MySQL database
 connectDB();
 
 const app = express();

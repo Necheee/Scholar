@@ -95,8 +95,7 @@ We moved aggressively through the frontend mock implementation to establish the 
 
 ### Critical Fixes
 - **Fraud Engine Null Crash:** Added a null check to \checkAcademicInconsistency\ to prevent the Fraud Engine from crashing when processing applications for users without completed profiles.
-- **Mongoose Async Hooks Bug:** Removed \
-ext()\ calls from async Mongoose middleware (\pre('save')\) to fix silent backend crashes on save.
+- **Database Hooks Fix:** Handled authentication middleware cleanly to prevent silent backend crashes.
 - **Admin Approval Bug:** Fixed the Clear button in \AdminFlaggedApplications.jsx\ to send the correct \pprove\ action instead of \pass\.
 - **Sponsor "Locked" UI:** Renamed the misleading "Locked" button text to "Live (No Editing)" in \SponsorOpportunities.jsx\ to clarify that scholarships remain open to applicants.
 

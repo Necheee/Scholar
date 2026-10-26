@@ -16,7 +16,7 @@ export const uploadDocument = async (req, res, next) => {
     const fileHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
 
     // Determine the folder based on the student's ID for better organization
-    const folder = `scholar/students/${req.user._id}`;
+    const folder = `scholar/students/${req.user.id || req.user._id}`;
     
     // We must use a stream to upload buffer from memory storage to Cloudinary
     let streamUpload = (req) => {

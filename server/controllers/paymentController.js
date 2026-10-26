@@ -1,12 +1,29 @@
-import mongoose from 'mongoose';
-import Payment from '../models/Payment.js';
-import Application from '../models/Application.js';
-import Sponsorship from '../models/Sponsorship.js';
-import User from '../models/User.js';
-import StudentProfile from '../models/StudentProfile.js';
-import Notification from '../models/Notification.js';
-import ActivityLog from '../models/ActivityLog.js';
+import prisma from '../config/db.js';
 import { parseDurationToDays } from '../utils/durationHelper.js';
+import { createNotification } from '../services/notificationService.js';
+import { logActivity } from '../services/activityService.js';
+
+// Helper to format payment records for frontend compatibility
+export const formatPayment = (p) => {
+  if (!p) return null;
+  let meta = p.metadata;
+  if (typeof meta === 'string') {
+    try {
+      meta = JSON.parse(meta);
+    } catch {
+      meta = {};
+    }
+  }
+  return {
+    ...p,
+    _id: p.id,
+    sponsor: p.sponsor ? { ...p.sponsor, _id: p.sponsor.id } : p.sponsorId,
+    student: p.student ? { ...p.student, _id: p.student.id } : p.studentId,
+    sponsorship: p.sponsorship ? { ...p.sponsorship, _id: p.sponsorship.id } : p.sponsorshipId,
+    application: p.application ? { ...p.application, _id: p.application.id } : p.applicationId,
+    metadata: meta,
+  };
+};
 
 /**
  * @desc    Initialize a Paystack disbursement transaction for an approved scholarship
@@ -16,27 +33,32 @@ import { parseDurationToDays } from '../utils/durationHelper.js';
 export const initializeDisbursement = async (req, res) => {
   try {
     const { applicationId } = req.body;
+    const sponsorId = req.user.id || req.user._id;
 
     if (!applicationId) {
       return res.status(400).json({ message: 'Application ID is required' });
     }
 
-    const application = await Application.findById(applicationId)
-      .populate('sponsorship')
-      .populate('student', 'name email');
+    const application = await prisma.application.findUnique({
+      where: { id: applicationId },
+      include: {
+        sponsorship: true,
+        student: { select: { id: true, name: true, email: true } },
+      },
+    });
 
     if (!application) {
       return res.status(404).json({ message: 'Application not found' });
     }
 
     // Ensure the current user is the sponsor of this opportunity
-    if (application.sponsorship.sponsor.toString() !== req.user._id.toString()) {
+    if (application.sponsorship?.sponsorId !== sponsorId) {
       return res.status(403).json({ message: 'You are not authorized to disburse funds for this opportunity' });
     }
 
     if (!['Approved', 'Grant Disbursed'].includes(application.status)) {
-      return res.status(400).json({ 
-        message: `Application must be in 'Approved' status to disburse funds (current: ${application.status})` 
+      return res.status(400).json({
+        message: `Application must be in 'Approved' status to disburse funds (current: ${application.status})`,
       });
     }
 
@@ -47,7 +69,6 @@ export const initializeDisbursement = async (req, res) => {
     const isLiveKey = paystackSecret && (paystackSecret.startsWith('sk_test_') || paystackSecret.startsWith('sk_live_'));
 
     if (isLiveKey) {
-      // Live Paystack API initialization
       const paystackPayload = {
         email: req.user.email,
         amount: Math.round(grantAmount * 100), // amount in kobo
@@ -55,9 +76,9 @@ export const initializeDisbursement = async (req, res) => {
         currency: 'NGN',
         callback_url: `${req.headers.origin || 'http://localhost:5173'}/sponsor/applications`,
         metadata: {
-          applicationId: application._id.toString(),
-          sponsorshipId: application.sponsorship._id.toString(),
-          studentId: application.student._id.toString(),
+          applicationId: application.id,
+          sponsorshipId: application.sponsorship.id,
+          studentId: application.student.id,
           studentName: application.student.name,
           sponsorshipTitle: application.sponsorship.title,
         },
@@ -75,8 +96,8 @@ export const initializeDisbursement = async (req, res) => {
       const data = await paystackRes.json();
 
       if (!data.status) {
-        return res.status(400).json({ 
-          message: data.message || 'Failed to initialize transaction with Paystack' 
+        return res.status(400).json({
+          message: data.message || 'Failed to initialize transaction with Paystack',
         });
       }
 
@@ -95,7 +116,6 @@ export const initializeDisbursement = async (req, res) => {
         sponsorEmail: req.user.email,
       });
     } else {
-      // Simulated / Local demonstration fallback when live keys have not been configured yet
       return res.json({
         success: true,
         simulated: true,
@@ -121,20 +141,25 @@ export const initializeDisbursement = async (req, res) => {
 export const verifyDisbursement = async (req, res) => {
   try {
     const { reference, applicationId, simulated } = req.body;
+    const sponsorId = req.user.id || req.user._id;
 
     if (!reference || !applicationId) {
       return res.status(400).json({ message: 'Reference and Application ID are required' });
     }
 
-    const application = await Application.findById(applicationId)
-      .populate('sponsorship')
-      .populate('student', 'name email');
+    const application = await prisma.application.findUnique({
+      where: { id: applicationId },
+      include: {
+        sponsorship: true,
+        student: { select: { id: true, name: true, email: true } },
+      },
+    });
 
     if (!application) {
       return res.status(404).json({ message: 'Application not found' });
     }
 
-    if (application.sponsorship.sponsor.toString() !== req.user._id.toString()) {
+    if (application.sponsorship?.sponsorId !== sponsorId) {
       return res.status(403).json({ message: 'Unauthorized sponsor action' });
     }
 
@@ -146,7 +171,6 @@ export const verifyDisbursement = async (req, res) => {
     let paystackTransactionId = `SIM-${reference}`;
 
     if (!simulated && isLiveKey) {
-      // Verify directly with upstream Paystack API
       const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
         method: 'GET',
         headers: {
@@ -168,69 +192,84 @@ export const verifyDisbursement = async (req, res) => {
     }
 
     // Record / Update Payment record in Database
-    const payment = await Payment.findOneAndUpdate(
-      { reference },
-      {
+    const payment = await prisma.payment.upsert({
+      where: { reference },
+      create: {
         reference,
         amount: grantAmount,
         currency: 'NGN',
         status: 'Success',
         paystackTransactionId,
         channel,
-        sponsor: req.user._id,
-        student: application.student._id,
-        sponsorship: application.sponsorship._id,
-        application: application._id,
+        sponsorId,
+        studentId: application.student.id,
+        sponsorshipId: application.sponsorship.id,
+        applicationId: application.id,
         paidAt: new Date(),
-        metadata: {
+        metadata: JSON.stringify({
           simulated: Boolean(simulated || !isLiveKey),
           sponsorshipTitle: application.sponsorship.title,
           studentName: application.student.name,
-        },
+        }),
       },
-      { upsert: true, new: true }
-    );
+      update: {
+        status: 'Success',
+        paystackTransactionId,
+        channel,
+        paidAt: new Date(),
+        metadata: JSON.stringify({
+          simulated: Boolean(simulated || !isLiveKey),
+          sponsorshipTitle: application.sponsorship.title,
+          studentName: application.student.name,
+        }),
+      },
+    });
 
     // Update Application Status and Funding Period based on Sponsorship Duration
     const durationDays = parseDurationToDays(application.sponsorship?.duration);
     const disbursedAt = new Date();
     const fundingEndDate = new Date(disbursedAt.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
-    application.status = 'Grant Disbursed';
-    application.disbursedAt = disbursedAt;
-    application.fundingEndDate = fundingEndDate;
-    await application.save();
+    const updatedApp = await prisma.application.update({
+      where: { id: application.id },
+      data: {
+        status: 'Grant Disbursed',
+        disbursedAt,
+        fundingEndDate,
+      },
+    });
 
     // 1. Notify Student
-    await Notification.create({
-      user: application.student._id,
-      title: 'Tuition Grant Disbursed!',
-      message: `Congratulations! Your sponsor has disbursed your scholarship grant of ₦${grantAmount.toLocaleString()} for "${application.sponsorship.title}". (Paystack Ref: ${reference})`,
-      relatedApplication: application._id,
-    });
+    await createNotification(
+      application.student.id,
+      'Tuition Grant Disbursed!',
+      `Congratulations! Your sponsor has disbursed your scholarship grant of ₦${grantAmount.toLocaleString()} for "${application.sponsorship.title}". (Paystack Ref: ${reference})`,
+      application.id
+    );
 
     // 2. Notify Sponsor
-    await Notification.create({
-      user: req.user._id,
-      title: 'Grant Disbursement Confirmed',
-      message: `Tuition grant of ₦${grantAmount.toLocaleString()} successfully disbursed to ${application.student.name}. (Paystack Ref: ${reference})`,
-      relatedApplication: application._id,
-    });
+    await createNotification(
+      sponsorId,
+      'Grant Disbursement Confirmed',
+      `Tuition grant of ₦${grantAmount.toLocaleString()} successfully disbursed to ${application.student.name}. (Paystack Ref: ${reference})`,
+      application.id
+    );
 
-    // 3. Log System Activity for Admin Audit Trail
-    await ActivityLog.create({
-      action: 'GRANT_DISBURSED',
-      description: `Sponsor ${req.user.name || 'Sponsor'} disbursed ₦${grantAmount.toLocaleString()} grant to ${application.student.name} for "${application.sponsorship.title}". Ref: ${reference}`,
-      user: req.user._id,
-      role: 'Sponsor',
-      relatedId: payment._id,
-    });
+    // 3. Log System Activity
+    await logActivity(
+      'GRANT_DISBURSED',
+      `Sponsor ${req.user.name || 'Sponsor'} disbursed ₦${grantAmount.toLocaleString()} grant to ${application.student.name} for "${application.sponsorship.title}". Ref: ${reference}`,
+      sponsorId,
+      'Sponsor',
+      payment.id
+    );
 
     return res.status(200).json({
       success: true,
       message: 'Tuition grant disbursed successfully',
       payment: {
-        id: payment._id,
+        id: payment.id,
+        _id: payment.id,
         reference: payment.reference,
         amount: payment.amount,
         currency: payment.currency,
@@ -240,7 +279,7 @@ export const verifyDisbursement = async (req, res) => {
         beneficiary: application.student.name,
         opportunity: application.sponsorship.title,
       },
-      applicationStatus: application.status,
+      applicationStatus: updatedApp.status,
     });
   } catch (error) {
     console.error('Verification error:', error);
@@ -256,34 +295,33 @@ export const verifyDisbursement = async (req, res) => {
 export const getPaymentReceipt = async (req, res) => {
   try {
     const { applicationId } = req.params;
+    const currentUserId = req.user.id || req.user._id;
 
-    let query;
-    if (mongoose.Types.ObjectId.isValid(applicationId)) {
-      query = {
-        $or: [
-          { application: applicationId },
-          { _id: applicationId }
-        ]
-      };
-    } else {
-      query = { reference: applicationId };
-    }
-
-    const payment = await Payment.findOne(query)
-      .sort({ createdAt: -1 })
-      .populate('sponsor', 'name email')
-      .populate('student', 'name email')
-      .populate('sponsorship', 'title grantAmount duration');
+    const payment = await prisma.payment.findFirst({
+      where: {
+        OR: [
+          { applicationId },
+          { id: applicationId },
+          { reference: applicationId },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        sponsor: { select: { id: true, name: true, email: true } },
+        student: { select: { id: true, name: true, email: true } },
+        sponsorship: {
+          select: { id: true, title: true, grantAmount: true, duration: true },
+        },
+      },
+    });
 
     if (!payment) {
       return res.status(404).json({ message: 'No payment record found for this application or reference' });
     }
 
-    // Ensure only involved parties, Sponsor, or Admin can access
-    const userId = req.user._id.toString();
-    const isOwner = 
-      (payment.sponsor?._id ? payment.sponsor._id.toString() === userId : payment.sponsor?.toString() === userId) || 
-      (payment.student?._id ? payment.student._id.toString() === userId : payment.student?.toString() === userId) || 
+    const isOwner =
+      payment.sponsorId === currentUserId ||
+      payment.studentId === currentUserId ||
       req.user.role === 'Admin' ||
       req.user.role === 'Sponsor';
 
@@ -291,11 +329,23 @@ export const getPaymentReceipt = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to view this receipt' });
     }
 
-    const studentProfile = await StudentProfile.findOne({ user: payment.student?._id || payment.student });
+    const studentProfile = await prisma.studentProfile.findUnique({
+      where: { userId: payment.studentId },
+    });
+
+    const bankDetails = studentProfile
+      ? {
+          bankName: studentProfile.bankName || '',
+          accountNumber: studentProfile.accountNumber || '',
+          accountName: studentProfile.accountName || '',
+        }
+      : null;
+
+    const formattedPayment = formatPayment(payment);
 
     res.json({
-      ...payment.toObject(),
-      studentBankDetails: studentProfile?.bankDetails || null,
+      ...formattedPayment,
+      studentBankDetails: bankDetails,
     });
   } catch (error) {
     console.error('Get receipt error:', error);
@@ -310,11 +360,17 @@ export const getPaymentReceipt = async (req, res) => {
  */
 export const getSponsorTransactions = async (req, res) => {
   try {
-    const payments = await Payment.find({ sponsor: req.user._id })
-      .populate('student', 'name email')
-      .populate('sponsorship', 'title grantAmount')
-      .populate('application', 'status disbursedAt')
-      .sort({ createdAt: -1 });
+    const sponsorId = req.user.id || req.user._id;
+
+    const payments = await prisma.payment.findMany({
+      where: { sponsorId },
+      include: {
+        student: { select: { id: true, name: true, email: true } },
+        sponsorship: { select: { id: true, title: true, grantAmount: true } },
+        application: { select: { id: true, status: true, disbursedAt: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
     const totalDisbursed = payments
       .filter((p) => p.status === 'Success')
@@ -326,11 +382,10 @@ export const getSponsorTransactions = async (req, res) => {
       totalDisbursed,
       transactionCount: payments.length,
       successfulCount,
-      transactions: payments,
+      transactions: payments.map(formatPayment),
     });
   } catch (error) {
     console.error('Get sponsor transactions error:', error);
     res.status(500).json({ message: error.message || 'Error fetching transaction history' });
   }
 };
-

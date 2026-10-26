@@ -40,10 +40,10 @@ Overall system design and frontend implementation structure.
 - Notification service
 **Planned Backend Architecture:**
 - **Backend API:** Node.js + Express.js REST API
-- **Database:** MongoDB (Users, Profiles, Sponsorships, Applications, Notifications, Fraud Flags, Document Metadata)
+- **Database:** MySQL via Prisma ORM (Users, Profiles, Sponsorships, Applications, Notifications, Fraud Flags, Document Metadata)
 - **Authentication:** Custom JWT-based authentication (bcrypt password hashing, role-based authorization for Student/Sponsor/Admin)
 - **Fraud Detection Engine:** Custom rule-based system running in the backend (e.g., detecting duplicate applications, inconsistencies). Flags trigger Admin review, not automatic rejection.
-- **File Storage:** Cloudinary (Document metadata stored in MongoDB)
+- **File Storage:** Cloudinary (Document metadata stored in MySQL)
 
 **Current State:**
 - Frontend shell built

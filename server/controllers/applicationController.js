@@ -1,10 +1,57 @@
-import Application from '../models/Application.js';
-import Sponsorship from '../models/Sponsorship.js';
-import FraudResult from '../models/FraudResult.js';
+import prisma from '../config/db.js';
 import { runFraudDetection } from '../services/fraudDetectionService.js';
 import { createNotification } from '../services/notificationService.js';
 import { logActivity } from '../services/activityService.js';
 import { getFundingStatus } from '../utils/durationHelper.js';
+
+// Helper to format application object for 100% frontend compatibility
+export const formatApplication = (app) => {
+  if (!app) return null;
+
+  let fraudResult = null;
+  if (app.fraudResult) {
+    let rules = app.fraudResult.rulesTriggered;
+    if (typeof rules === 'string') {
+      try {
+        rules = JSON.parse(rules);
+      } catch {
+        rules = [];
+      }
+    }
+    fraudResult = {
+      ...app.fraudResult,
+      _id: app.fraudResult.id,
+      rulesTriggered: Array.isArray(rules) ? rules : [],
+    };
+  }
+
+  const docs = (app.documents || []).map((d) => ({
+    ...d,
+    _id: d.id,
+  }));
+
+  const sponsorshipObj = app.sponsorship
+    ? {
+        ...app.sponsorship,
+        _id: app.sponsorship.id,
+        sponsor: app.sponsorship.sponsorId,
+      }
+    : app.sponsorshipId;
+
+  return {
+    ...app,
+    _id: app.id,
+    student: app.student ? { ...app.student, _id: app.student.id } : app.studentId,
+    sponsorship: sponsorshipObj,
+    academicInfoSnapshot: {
+      session: app.academicSession || '',
+      level: app.academicLevel || '',
+      programme: app.academicProgramme || '',
+    },
+    documents: docs,
+    fraudResult,
+  };
+};
 
 // @desc    Submit a new application
 // @route   POST /api/applications
@@ -12,32 +59,45 @@ import { getFundingStatus } from '../utils/durationHelper.js';
 export const submitApplication = async (req, res, next) => {
   try {
     const { sponsorshipId, academicInfoSnapshot, reasonForRequesting, documents } = req.body;
+    const studentId = req.user.id || req.user._id;
 
     // 1. One Active In-Review Application Rule
-    const activeReviewApp = await Application.findOne({
-      student: req.user._id,
-      status: { 
-        $in: [
-          'Draft',
-          'Submitted',
-          'Under screening',
-          'Under Admin review',
-          'Waiting for additional information',
-          'Under Sponsor review'
-        ] 
-      }
-    }).populate('sponsorship', 'title');
+    const activeReviewApp = await prisma.application.findFirst({
+      where: {
+        studentId,
+        status: {
+          in: [
+            'Draft',
+            'Submitted',
+            'Under screening',
+            'Under Admin review',
+            'Waiting for additional information',
+            'Under Sponsor review',
+          ],
+        },
+      },
+      include: {
+        sponsorship: { select: { title: true } },
+      },
+    });
 
     if (activeReviewApp) {
       res.status(400);
-      throw new Error(`You already have an active application under review for "${activeReviewApp.sponsorship?.title || 'an opportunity'}". You cannot submit another application until a decision is reached.`);
+      throw new Error(
+        `You already have an active application under review for "${activeReviewApp.sponsorship?.title || 'an opportunity'}". You cannot submit another application until a decision is reached.`
+      );
     }
 
     // 2. Duration-based Active Scholarship Rule
-    const fundedApps = await Application.find({
-      student: req.user._id,
-      status: { $in: ['Grant Disbursed', 'Approved'] }
-    }).populate('sponsorship', 'title duration');
+    const fundedApps = await prisma.application.findMany({
+      where: {
+        studentId,
+        status: { in: ['Grant Disbursed', 'Approved'] },
+      },
+      include: {
+        sponsorship: { select: { title: true, duration: true } },
+      },
+    });
 
     for (const fundedApp of fundedApps) {
       const funding = getFundingStatus(fundedApp);
@@ -50,7 +110,9 @@ export const submitApplication = async (req, res, next) => {
       }
     }
 
-    const sponsorship = await Sponsorship.findById(sponsorshipId);
+    const sponsorship = await prisma.sponsorship.findUnique({
+      where: { id: sponsorshipId },
+    });
     if (!sponsorship) {
       res.status(404);
       throw new Error('Sponsorship not found');
@@ -61,36 +123,64 @@ export const submitApplication = async (req, res, next) => {
       throw new Error('This sponsorship opportunity is closed');
     }
 
-    // Create the application (initial status is usually 'Submitted' or 'Under screening')
-    const application = await Application.create({
-      student: req.user._id,
-      sponsorship: sponsorshipId,
-      status: 'Under screening', // Temporarily under screening
-      academicInfoSnapshot,
-      reasonForRequesting,
-      documents,
+    // Create the application with documents in a transaction
+    const application = await prisma.$transaction(async (tx) => {
+      const createdApp = await tx.application.create({
+        data: {
+          studentId,
+          sponsorshipId,
+          status: 'Under screening',
+          academicSession: academicInfoSnapshot?.session || null,
+          academicLevel: academicInfoSnapshot?.level || null,
+          academicProgramme: academicInfoSnapshot?.programme || null,
+          reasonForRequesting: reasonForRequesting || null,
+        },
+      });
+
+      if (documents && Array.isArray(documents) && documents.length > 0) {
+        await tx.applicationDocument.createMany({
+          data: documents.map((doc) => ({
+            applicationId: createdApp.id,
+            type: doc.type,
+            cloudinaryUrl: doc.cloudinaryUrl,
+            cloudinaryId: doc.cloudinaryId,
+            fileHash: doc.fileHash || null,
+          })),
+        });
+      }
+
+      if (!sponsorship.isLocked) {
+        await tx.sponsorship.update({
+          where: { id: sponsorship.id },
+          data: { isLocked: true },
+        });
+      }
+
+      return createdApp;
     });
 
-    // Lock the sponsorship
-    if (!sponsorship.isLocked) {
-      sponsorship.isLocked = true;
-      await sponsorship.save();
-    }
-
-    // Run Fraud Detection Engine asynchronously
-    // In a real production system, this would be pushed to a queue (e.g. RabbitMQ / Redis)
-    // For this project, we await it directly or let it run in background
-    const evaluatedApp = await runFraudDetection(application._id);
+    // Run Fraud Detection Engine
+    const evaluatedApp = await runFraudDetection(application.id);
 
     await logActivity(
       'Application Submitted',
       `Student applied for sponsorship "${sponsorship.title}".`,
-      req.user._id,
+      studentId,
       'Student',
-      application._id
+      application.id
     );
 
-    res.status(201).json(evaluatedApp || application);
+    const fullApp = await prisma.application.findUnique({
+      where: { id: application.id },
+      include: {
+        student: { select: { id: true, name: true, email: true } },
+        sponsorship: true,
+        documents: true,
+        fraudResult: true,
+      },
+    });
+
+    res.status(201).json(formatApplication(fullApp || evaluatedApp));
   } catch (error) {
     next(error);
   }
@@ -101,15 +191,33 @@ export const submitApplication = async (req, res, next) => {
 // @access  Private/Student
 export const getMyApplications = async (req, res, next) => {
   try {
-    const applications = await Application.find({ student: req.user._id })
-      .populate('sponsorship', 'title sponsor applicationDeadline grantAmount duration')
-      .lean();
+    const studentId = req.user.id || req.user._id;
+    const applications = await prisma.application.findMany({
+      where: { studentId },
+      include: {
+        sponsorship: {
+          select: {
+            id: true,
+            title: true,
+            sponsorId: true,
+            applicationDeadline: true,
+            grantAmount: true,
+            duration: true,
+          },
+        },
+        documents: true,
+        fraudResult: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-    // Attach computed duration-based funding status
-    const appsWithFunding = applications.map(app => ({
-      ...app,
-      fundingStatus: getFundingStatus(app)
-    }));
+    const appsWithFunding = applications.map((app) => {
+      const formatted = formatApplication(app);
+      return {
+        ...formatted,
+        fundingStatus: getFundingStatus(app),
+      };
+    });
 
     res.json(appsWithFunding);
   } catch (error) {
@@ -122,23 +230,45 @@ export const getMyApplications = async (req, res, next) => {
 // @access  Private/Sponsor
 export const getSponsorApplications = async (req, res, next) => {
   try {
-    // 1. Find all sponsorships owned by this sponsor
-    const sponsorships = await Sponsorship.find({ sponsor: req.user._id });
-    const sponsorshipIds = sponsorships.map(s => s._id);
+    const sponsorId = req.user.id || req.user._id;
 
-    // 2. Find all applications for those sponsorships that are ready for sponsor review or processed
-    const applications = await Application.find({
-      sponsorship: { $in: sponsorshipIds },
-      status: { $in: ['Under Sponsor review', 'Approved', 'Grant Disbursed', 'Waiting for additional information', 'Rejected'] }
-    })
-      .populate('student', 'name email')
-      .populate('sponsorship', 'title grantAmount duration applicationDeadline');
+    // Find all sponsorships owned by this sponsor
+    const sponsorships = await prisma.sponsorship.findMany({
+      where: { sponsorId },
+      select: { id: true },
+    });
+    const sponsorshipIds = sponsorships.map((s) => s.id);
 
-    // We also need the student's profile for institutional info, but we can do a secondary lookup
-    // or just let the frontend fetch student profile details when viewing an individual app,
-    // or we can attach it here. For simplicity, we just return the apps.
+    const applications = await prisma.application.findMany({
+      where: {
+        sponsorshipId: { in: sponsorshipIds },
+        status: {
+          in: [
+            'Under Sponsor review',
+            'Approved',
+            'Grant Disbursed',
+            'Waiting for additional information',
+            'Rejected',
+          ],
+        },
+      },
+      include: {
+        student: { select: { id: true, name: true, email: true } },
+        sponsorship: {
+          select: {
+            id: true,
+            title: true,
+            grantAmount: true,
+            duration: true,
+            applicationDeadline: true,
+          },
+        },
+        documents: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-    res.json(applications);
+    res.json(applications.map(formatApplication));
   } catch (error) {
     next(error);
   }
@@ -149,18 +279,33 @@ export const getSponsorApplications = async (req, res, next) => {
 // @access  Private
 export const getApplicationById = async (req, res, next) => {
   try {
-    const application = await Application.findById(req.params.id)
-      .populate('student', 'name email')
-      .populate('sponsorship', 'title sponsor grantAmount duration applicationDeadline');
+    const application = await prisma.application.findUnique({
+      where: { id: req.params.id },
+      include: {
+        student: { select: { id: true, name: true, email: true } },
+        sponsorship: {
+          select: {
+            id: true,
+            title: true,
+            sponsorId: true,
+            grantAmount: true,
+            duration: true,
+            applicationDeadline: true,
+          },
+        },
+        documents: true,
+        fraudResult: true,
+      },
+    });
 
     if (!application) {
       res.status(404);
       throw new Error('Application not found');
     }
 
-    // Authorization checks
-    const isStudent = req.user._id.toString() === application.student._id.toString();
-    const isSponsor = req.user.role === 'Sponsor' && req.user._id.toString() === application.sponsorship.sponsor.toString();
+    const currentUserId = req.user.id || req.user._id;
+    const isStudent = currentUserId === application.studentId;
+    const isSponsor = req.user.role === 'Sponsor' && currentUserId === application.sponsorship?.sponsorId;
     const isAdmin = req.user.role === 'Admin';
 
     if (!isStudent && !isSponsor && !isAdmin) {
@@ -168,13 +313,17 @@ export const getApplicationById = async (req, res, next) => {
       throw new Error('Not authorized to view this application');
     }
 
-    // Sponsors should only see applications that are 'Under Sponsor review' or higher
-    if (isSponsor && !['Under Sponsor review', 'Approved', 'Grant Disbursed', 'Waiting for additional information', 'Rejected'].includes(application.status)) {
-       res.status(403);
-       throw new Error('Application is not yet ready for sponsor review');
+    if (
+      isSponsor &&
+      !['Under Sponsor review', 'Approved', 'Grant Disbursed', 'Waiting for additional information', 'Rejected'].includes(
+        application.status
+      )
+    ) {
+      res.status(403);
+      throw new Error('Application is not yet ready for sponsor review');
     }
 
-    res.json(application);
+    res.json(formatApplication(application));
   } catch (error) {
     next(error);
   }
@@ -185,23 +334,21 @@ export const getApplicationById = async (req, res, next) => {
 // @access  Private/Admin
 export const getFlaggedApplications = async (req, res, next) => {
   try {
-    const flaggedApplications = await Application.find({ status: 'Under Admin review', fraudReviewStatus: 'Flagged' })
-      .populate('student', 'name email')
-      .populate('sponsorship', 'title')
-      .lean();
-      
-    const appIds = flaggedApplications.map(app => app._id);
-    const fraudResults = await FraudResult.find({ application: { $in: appIds } }).lean();
-
-    const result = flaggedApplications.map(app => {
-      const fr = fraudResults.find(f => f.application.toString() === app._id.toString());
-      return {
-        ...app,
-        fraudResult: fr || null
-      };
+    const flaggedApplications = await prisma.application.findMany({
+      where: {
+        status: 'Under Admin review',
+        fraudReviewStatus: 'Flagged',
+      },
+      include: {
+        student: { select: { id: true, name: true, email: true } },
+        sponsorship: { select: { id: true, title: true } },
+        documents: true,
+        fraudResult: true,
+      },
+      orderBy: { createdAt: 'desc' },
     });
 
-    res.json(result);
+    res.json(flaggedApplications.map(formatApplication));
   } catch (error) {
     next(error);
   }
@@ -212,52 +359,91 @@ export const getFlaggedApplications = async (req, res, next) => {
 // @access  Private/Admin
 export const adminReviewApplication = async (req, res, next) => {
   try {
-    const { action, reason } = req.body; // action: 'approve', 'reject', 'request_info'
-    const application = await Application.findById(req.params.id).populate('sponsorship');
+    const { action, reason } = req.body;
+    const application = await prisma.application.findUnique({
+      where: { id: req.params.id },
+      include: {
+        sponsorship: true,
+      },
+    });
 
     if (!application) {
       res.status(404);
       throw new Error('Application not found');
     }
 
-    // Concurrency Lock: Prevent multiple people from reviewing simultaneously
     if (application.status !== 'Under Admin review') {
-      res.status(409); // Conflict
-      throw new Error(`State Conflict: This application is currently '${application.status}' and cannot be reviewed by an Admin right now. Please refresh the page.`);
+      res.status(409);
+      throw new Error(
+        `State Conflict: This application is currently '${application.status}' and cannot be reviewed by an Admin right now. Please refresh the page.`
+      );
     }
 
+    let newStatus = application.status;
+    let newRejectionReason = application.rejectionReason;
+
     if (action === 'approve') {
-      application.status = 'Under Sponsor review';
-      await createNotification(application.student, 'Application Cleared', `Your application for ${application.sponsorship.title} has passed screening and is now under Sponsor review.`, application._id);
-      
-      if (application.sponsorship && application.sponsorship.sponsor) {
+      newStatus = 'Under Sponsor review';
+      await createNotification(
+        application.studentId,
+        'Application Cleared',
+        `Your application for ${application.sponsorship?.title} has passed screening and is now under Sponsor review.`,
+        application.id
+      );
+
+      if (application.sponsorship && application.sponsorship.sponsorId) {
         await createNotification(
-          application.sponsorship.sponsor, 
-          'New Application Received', 
-          `An application for ${application.sponsorship.title} has passed Admin screening and is ready for your review.`, 
-          application._id
+          application.sponsorship.sponsorId,
+          'New Application Received',
+          `An application for ${application.sponsorship.title} has passed Admin screening and is ready for your review.`,
+          application.id
         );
       }
     } else if (action === 'reject') {
-      application.status = 'Rejected';
-      application.rejectionReason = reason;
-      await createNotification(application.student, 'Application Rejected', `Your application for ${application.sponsorship.title} has been rejected by the admin. Reason: ${reason}`, application._id);
+      newStatus = 'Rejected';
+      newRejectionReason = reason;
+      await createNotification(
+        application.studentId,
+        'Application Rejected',
+        `Your application for ${application.sponsorship?.title} has been rejected by the admin. Reason: ${reason}`,
+        application.id
+      );
     } else if (action === 'request_info') {
-      application.status = 'Waiting for additional information';
-      await createNotification(application.student, 'Additional Information Required', `The admin has requested more information regarding your application for ${application.sponsorship.title}.`, application._id);
+      newStatus = 'Waiting for additional information';
+      await createNotification(
+        application.studentId,
+        'Additional Information Required',
+        `The admin has requested more information regarding your application for ${application.sponsorship?.title}.`,
+        application.id
+      );
     } else {
       res.status(400);
       throw new Error('Invalid action');
     }
-    await application.save();
+
+    const updated = await prisma.application.update({
+      where: { id: application.id },
+      data: {
+        status: newStatus,
+        rejectionReason: newRejectionReason,
+      },
+      include: {
+        student: { select: { id: true, name: true, email: true } },
+        sponsorship: true,
+        documents: true,
+        fraudResult: true,
+      },
+    });
+
     await logActivity(
       'Admin Reviewed Application',
       'Admin made a decision on a flagged application.',
-      req.user._id,
+      req.user.id || req.user._id,
       'Admin',
-      application._id
+      application.id
     );
-    res.json(application);
+
+    res.json(formatApplication(updated));
   } catch (error) {
     next(error);
   }
@@ -268,58 +454,99 @@ export const adminReviewApplication = async (req, res, next) => {
 // @access  Private/Sponsor
 export const sponsorReviewApplication = async (req, res, next) => {
   try {
-    const { action, reason } = req.body; // action: 'approve', 'reject'
-    const application = await Application.findById(req.params.id).populate('sponsorship');
+    const { action, reason } = req.body;
+    const application = await prisma.application.findUnique({
+      where: { id: req.params.id },
+      include: {
+        sponsorship: true,
+      },
+    });
 
     if (!application) {
       res.status(404);
       throw new Error('Application not found');
     }
 
-    // Ensure the sponsor owns the sponsorship
-    if (application.sponsorship.sponsor.toString() !== req.user._id.toString()) {
+    const currentUserId = req.user.id || req.user._id;
+    if (application.sponsorship?.sponsorId !== currentUserId) {
       res.status(403);
       throw new Error('Not authorized to review this application');
     }
 
-    // Concurrency Lock: Prevent multiple people from reviewing simultaneously
     if (application.status !== 'Under Sponsor review') {
-      res.status(409); // Conflict
-      throw new Error(`State Conflict: This application is currently '${application.status}' and cannot be reviewed by a Sponsor right now. Please refresh the page.`);
+      res.status(409);
+      throw new Error(
+        `State Conflict: This application is currently '${application.status}' and cannot be reviewed by a Sponsor right now. Please refresh the page.`
+      );
     }
 
+    let newStatus = application.status;
+    let newRejectionReason = application.rejectionReason;
+    let newReasonForRequesting = application.reasonForRequesting;
+
     if (action === 'approve') {
-      application.status = 'Approved';
-      await createNotification(application.student, 'Application Approved!', `Congratulations! Your application for ${application.sponsorship.title} has been approved by the sponsor.`, application._id);
+      newStatus = 'Approved';
+      await createNotification(
+        application.studentId,
+        'Application Approved!',
+        `Congratulations! Your application for ${application.sponsorship?.title} has been approved by the sponsor.`,
+        application.id
+      );
     } else if (action === 'reject') {
       if (!reason) {
         res.status(400);
         throw new Error('Rejection reason is required');
       }
-      application.status = 'Rejected';
-      application.rejectionReason = reason;
-      await createNotification(application.student, 'Application Rejected', `Unfortunately, your application for ${application.sponsorship.title} was rejected by the sponsor. Reason: ${reason}`, application._id);
+      newStatus = 'Rejected';
+      newRejectionReason = reason;
+      await createNotification(
+        application.studentId,
+        'Application Rejected',
+        `Unfortunately, your application for ${application.sponsorship?.title} was rejected by the sponsor. Reason: ${reason}`,
+        application.id
+      );
     } else if (action === 'request_info') {
       if (!reason) {
         res.status(400);
         throw new Error('Reason for requesting information is required');
       }
-      application.status = 'Waiting for additional information';
-      application.reasonForRequesting = reason;
-      await createNotification(application.student, 'Information Requested', `The Sponsor has requested additional information for your application: ${reason}`, application._id);
+      newStatus = 'Waiting for additional information';
+      newReasonForRequesting = reason;
+      await createNotification(
+        application.studentId,
+        'Information Requested',
+        `The Sponsor has requested additional information for your application: ${reason}`,
+        application.id
+      );
     } else {
       res.status(400);
       throw new Error('Invalid action');
     }
-    await application.save();
+
+    const updated = await prisma.application.update({
+      where: { id: application.id },
+      data: {
+        status: newStatus,
+        rejectionReason: newRejectionReason,
+        reasonForRequesting: newReasonForRequesting,
+      },
+      include: {
+        student: { select: { id: true, name: true, email: true } },
+        sponsorship: true,
+        documents: true,
+        fraudResult: true,
+      },
+    });
+
     await logActivity(
       'Sponsor Reviewed Application',
       'Sponsor made a decision on an application.',
-      req.user._id,
+      currentUserId,
       'Sponsor',
-      application._id
+      application.id
     );
-    res.json(application);
+
+    res.json(formatApplication(updated));
   } catch (error) {
     next(error);
   }
@@ -331,14 +558,19 @@ export const sponsorReviewApplication = async (req, res, next) => {
 export const provideAdditionalInformation = async (req, res, next) => {
   try {
     const { documents } = req.body;
-    const application = await Application.findById(req.params.id).populate('sponsorship');
+    const studentId = req.user.id || req.user._id;
+
+    const application = await prisma.application.findUnique({
+      where: { id: req.params.id },
+      include: { sponsorship: true, documents: true },
+    });
 
     if (!application) {
       res.status(404);
       throw new Error('Application not found');
     }
 
-    if (application.student.toString() !== req.user._id.toString()) {
+    if (application.studentId !== studentId) {
       res.status(403);
       throw new Error('Not authorized to update this application');
     }
@@ -354,42 +586,60 @@ export const provideAdditionalInformation = async (req, res, next) => {
     }
 
     // Append new documents
-    application.documents = [...application.documents, ...documents];
-    
-    // We revert it to Admin review (or Sponsor review, depending on who requested it. 
-    // We'll just default to Admin review for security so they can screen the new documents).
-    application.status = 'Under Admin review';
+    await prisma.applicationDocument.createMany({
+      data: documents.map((doc) => ({
+        applicationId: application.id,
+        type: doc.type,
+        cloudinaryUrl: doc.cloudinaryUrl,
+        cloudinaryId: doc.cloudinaryId,
+        fileHash: doc.fileHash || null,
+      })),
+    });
 
-    // Notify the sponsor if there is one
-    if (application.sponsorship && application.sponsorship.sponsor) {
+    const updated = await prisma.application.update({
+      where: { id: application.id },
+      data: {
+        status: 'Under Admin review',
+      },
+      include: {
+        student: { select: { id: true, name: true, email: true } },
+        sponsorship: true,
+        documents: true,
+        fraudResult: true,
+      },
+    });
+
+    if (application.sponsorship && application.sponsorship.sponsorId) {
       await createNotification(
-        application.sponsorship.sponsor,
+        application.sponsorship.sponsorId,
         'Information Provided',
         `The student has provided the requested information for their ${application.sponsorship.title} application.`,
-        application._id
+        application.id
       );
     }
 
-    await application.save();
-
-    res.json(application);
+    res.json(formatApplication(updated));
   } catch (error) {
     next(error);
   }
 };
+
 // @desc    Withdraw application
 // @route   PUT /api/applications/:id/withdraw
 // @access  Private/Student
 export const withdrawApplication = async (req, res, next) => {
   try {
-    const application = await Application.findById(req.params.id);
+    const studentId = req.user.id || req.user._id;
+    const application = await prisma.application.findUnique({
+      where: { id: req.params.id },
+    });
 
     if (!application) {
       res.status(404);
       throw new Error('Application not found');
     }
 
-    if (application.student.toString() !== req.user._id.toString()) {
+    if (application.studentId !== studentId) {
       res.status(403);
       throw new Error('Not authorized to withdraw this application');
     }
@@ -399,33 +649,45 @@ export const withdrawApplication = async (req, res, next) => {
       throw new Error(`Cannot withdraw an application that is already ${application.status}`);
     }
 
-    application.status = 'Withdrawn';
-    await application.save();
+    const updated = await prisma.application.update({
+      where: { id: application.id },
+      data: { status: 'Withdrawn' },
+      include: {
+        student: { select: { id: true, name: true, email: true } },
+        sponsorship: true,
+        documents: true,
+        fraudResult: true,
+      },
+    });
 
     // Unlock sponsorship if no other active applications remain
-    if (application.sponsorship) {
-      const otherActiveApps = await Application.countDocuments({
-        sponsorship: application.sponsorship,
-        _id: { $ne: application._id },
-        status: { $nin: ['Rejected', 'Withdrawn'] }
+    if (application.sponsorshipId) {
+      const otherActiveApps = await prisma.application.count({
+        where: {
+          sponsorshipId: application.sponsorshipId,
+          id: { not: application.id },
+          status: { notIn: ['Rejected', 'Withdrawn'] },
+        },
       });
+
       if (otherActiveApps === 0) {
-        await Sponsorship.findByIdAndUpdate(application.sponsorship, { isLocked: false });
+        await prisma.sponsorship.update({
+          where: { id: application.sponsorshipId },
+          data: { isLocked: false },
+        });
       }
     }
 
     await logActivity(
       'Application Withdrawn',
       'Student withdrew their application.',
-      req.user._id,
+      studentId,
       'Student',
-      application._id
+      application.id
     );
-    res.json(application);
+
+    res.json(formatApplication(updated));
   } catch (error) {
     next(error);
   }
 };
-
-
-

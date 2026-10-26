@@ -276,7 +276,7 @@ Major product, architecture, and technical decisions.
 
 ## DEC-028 — Database
 
-**Decision:** MongoDB for storing users, profiles, sponsorships, applications, notifications, fraud results, and document metadata. Student academic info is stored directly on the profile.
+**Decision:** MySQL via Prisma ORM for storing users, profiles, sponsorships, applications, notifications, fraud results, and document metadata. Structured relational tables enforce referential integrity across academic records and credentials.
 
 **Reason:** Flexible schema suitable for the varying data requirements of student profiles and applications.
 
@@ -296,9 +296,9 @@ Major product, architecture, and technical decisions.
 
 ## DEC-030 — File Storage
 
-**Decision:** Cloudinary for storing student documents (transcripts, IDs). MongoDB will store document references/metadata.
+**Decision:** Cloudinary for storing student documents (transcripts, IDs). MySQL will store document references/metadata.
 
-**Reason:** Prevents overloading MongoDB or the local server filesystem. Secure handling of sensitive files.
+**Reason:** Prevents overloading MySQL or the local server filesystem. Secure handling of sensitive files.
 
 **Status:** ✅ Accepted — Pending Implementation
 

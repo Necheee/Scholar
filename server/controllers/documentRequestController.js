@@ -1,8 +1,5 @@
-import DocumentRequest from '../models/DocumentRequest.js';
-import User from '../models/User.js';
-import StudentProfile from '../models/StudentProfile.js';
-import Application from '../models/Application.js';
-import Sponsorship from '../models/Sponsorship.js';
+import bcrypt from 'bcrypt';
+import prisma from '../config/db.js';
 import { createNotification } from '../services/notificationService.js';
 import { logActivity } from '../services/activityService.js';
 
@@ -80,37 +77,81 @@ const showcaseProfiles = [
   },
 ];
 
+export const formatDocumentRequest = (dr) => {
+  if (!dr) return null;
+  let reqDocs = dr.requestedDocuments;
+  if (typeof reqDocs === 'string') {
+    try {
+      reqDocs = JSON.parse(reqDocs);
+    } catch {
+      reqDocs = [];
+    }
+  }
+  return {
+    ...dr,
+    _id: dr.id,
+    sponsor: dr.sponsor ? { ...dr.sponsor, _id: dr.sponsor.id } : dr.sponsorId,
+    student: dr.student ? { ...dr.student, _id: dr.student.id } : dr.studentId,
+    sponsorship: dr.sponsorship ? { ...dr.sponsorship, _id: dr.sponsorship.id } : dr.sponsorshipId,
+    application: dr.application ? { ...dr.application, _id: dr.application.id } : dr.applicationId,
+    requestedDocuments: Array.isArray(reqDocs) ? reqDocs : [],
+    submittedDocuments: (dr.submittedDocuments || []).map((sd) => ({
+      ...sd,
+      _id: sd.id,
+    })),
+  };
+};
+
 // Helper to ensure a student user exists in DB for a showcase profile
 async function ensureStudentUser(showcase) {
-  let user = await User.findOne({ email: showcase.email.toLowerCase() });
+  let user = await prisma.user.findUnique({
+    where: { email: showcase.email.toLowerCase() },
+  });
+
   if (!user) {
-    user = await User.create({
-      name: showcase.name,
-      email: showcase.email.toLowerCase(),
-      password: 'Password123!', // default seeded password
-      role: 'Student',
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash('Password123!', salt);
+    user = await prisma.user.create({
+      data: {
+        name: showcase.name,
+        email: showcase.email.toLowerCase(),
+        password: hashedPassword,
+        role: 'Student',
+      },
     });
   }
 
-  let profile = await StudentProfile.findOne({ user: user._id });
+  let profile = await prisma.studentProfile.findUnique({
+    where: { userId: user.id },
+    include: { academicRecords: true },
+  });
+
   if (!profile) {
-    profile = await StudentProfile.create({
-      user: user._id,
-      institution: showcase.institution,
-      department: showcase.department,
-      seekingSponsorship: true,
-      academicRecords: [
-        {
-          session: showcase.session,
-          programme: showcase.programme,
-          level: showcase.level,
-          info: `GPA: ${showcase.gpa} / 4.00`,
+    profile = await prisma.studentProfile.create({
+      data: {
+        userId: user.id,
+        institution: showcase.institution,
+        department: showcase.department,
+        seekingSponsorship: true,
+        academicRecords: {
+          create: [
+            {
+              session: showcase.session,
+              programme: showcase.programme,
+              level: showcase.level,
+              info: `GPA: ${showcase.gpa} / 4.00`,
+            },
+          ],
         },
-      ],
+      },
+      include: { academicRecords: true },
     });
   } else if (!profile.seekingSponsorship) {
-    profile.seekingSponsorship = true;
-    await profile.save();
+    profile = await prisma.studentProfile.update({
+      where: { id: profile.id },
+      data: { seekingSponsorship: true },
+      include: { academicRecords: true },
+    });
   }
 
   return { user, profile };
@@ -121,7 +162,7 @@ async function ensureStudentUser(showcase) {
 // @access  Private (Sponsors, Admins)
 export const getSeekingStudents = async (req, res, next) => {
   try {
-    const sponsorId = req.user._id;
+    const sponsorId = req.user.id || req.user._id;
 
     // Ensure showcase students exist in DB so any request works consistently
     for (const item of showcaseProfiles) {
@@ -129,16 +170,20 @@ export const getSeekingStudents = async (req, res, next) => {
     }
 
     // Query all students seeking sponsorship
-    const profiles = await StudentProfile.find({ seekingSponsorship: true })
-      .populate('user', 'name email role')
-      .lean();
+    const profiles = await prisma.studentProfile.findMany({
+      where: { seekingSponsorship: true },
+      include: {
+        user: { select: { id: true, name: true, email: true, role: true } },
+        academicRecords: true,
+      },
+    });
 
     // Query any existing document requests sent by this sponsor
-    const existingRequests = await DocumentRequest.find({
-      sponsor: sponsorId,
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+    const existingRequests = await prisma.documentRequest.findMany({
+      where: { sponsorId },
+      include: { submittedDocuments: true },
+      orderBy: { createdAt: 'desc' },
+    });
 
     const formattedStudents = profiles
       .filter((p) => p.user && p.user.role === 'Student')
@@ -147,17 +192,17 @@ export const getSeekingStudents = async (req, res, next) => {
           (s) => s.email.toLowerCase() === p.user.email.toLowerCase()
         );
 
-        const latestReq = existingRequests.find(
-          (r) => r.student.toString() === p.user._id.toString()
-        );
+        const latestReq = existingRequests.find((r) => r.studentId === p.user.id);
 
-        const latestRecord = p.academicRecords && p.academicRecords.length > 0
-          ? p.academicRecords[p.academicRecords.length - 1]
-          : null;
+        const latestRecord =
+          p.academicRecords && p.academicRecords.length > 0
+            ? p.academicRecords[p.academicRecords.length - 1]
+            : null;
 
         return {
-          id: p.user._id,
-          userId: p.user._id,
+          id: p.user.id,
+          _id: p.user.id,
+          userId: p.user.id,
           name: p.user.name,
           email: p.user.email,
           institution: p.institution || matchingShowcase?.institution || 'Nigerian University',
@@ -170,7 +215,7 @@ export const getSeekingStudents = async (req, res, next) => {
           bio: matchingShowcase?.bio || 'Verified academic student seeking scholarship opportunities to complete degree requirements.',
           careerGoal: matchingShowcase?.careerGoal || 'Future Academic & Professional Leader',
           skills: matchingShowcase?.skills || ['Academic Research', 'Technical Writing'],
-          documentRequest: latestReq || null,
+          documentRequest: latestReq ? formatDocumentRequest(latestReq) : null,
         };
       });
 
@@ -194,6 +239,8 @@ export const createDocumentRequest = async (req, res, next) => {
       message,
     } = req.body;
 
+    const sponsorId = req.user.id || req.user._id;
+
     if (!requestedDocuments || !Array.isArray(requestedDocuments) || requestedDocuments.length === 0) {
       res.status(400);
       throw new Error('Please select at least one document to request');
@@ -206,10 +253,12 @@ export const createDocumentRequest = async (req, res, next) => {
 
     let studentUser = null;
     if (studentId) {
-      studentUser = await User.findById(studentId);
+      studentUser = await prisma.user.findUnique({ where: { id: studentId } });
     }
     if (!studentUser && studentEmail) {
-      studentUser = await User.findOne({ email: studentEmail.toLowerCase() });
+      studentUser = await prisma.user.findUnique({
+        where: { email: studentEmail.toLowerCase() },
+      });
     }
 
     if (!studentUser) {
@@ -217,59 +266,68 @@ export const createDocumentRequest = async (req, res, next) => {
       throw new Error('Student user account not found');
     }
 
-    // Verify sponsorship if provided
     let sponsorship = null;
     if (sponsorshipId) {
-      sponsorship = await Sponsorship.findById(sponsorshipId);
+      sponsorship = await prisma.sponsorship.findUnique({
+        where: { id: sponsorshipId },
+      });
     }
 
-    // Verify application if provided
     let application = null;
     if (applicationId) {
-      application = await Application.findById(applicationId);
+      application = await prisma.application.findUnique({
+        where: { id: applicationId },
+      });
       if (application) {
-        application.status = 'Waiting for additional information';
-        application.reasonForRequesting = message;
-        await application.save();
+        await prisma.application.update({
+          where: { id: applicationId },
+          data: {
+            status: 'Waiting for additional information',
+            reasonForRequesting: message,
+          },
+        });
       }
     }
 
-    const docRequest = await DocumentRequest.create({
-      sponsor: req.user._id,
-      student: studentUser._id,
-      sponsorship: sponsorship ? sponsorship._id : null,
-      application: application ? application._id : null,
-      requestedDocuments,
-      message,
-      status: 'Pending',
+    const docRequest = await prisma.documentRequest.create({
+      data: {
+        sponsorId,
+        studentId: studentUser.id,
+        sponsorshipId: sponsorship ? sponsorship.id : null,
+        applicationId: application ? application.id : null,
+        requestedDocuments: JSON.stringify(requestedDocuments),
+        message,
+        status: 'Pending',
+      },
+      include: {
+        student: { select: { id: true, name: true, email: true } },
+        sponsor: { select: { id: true, name: true, email: true } },
+        sponsorship: { select: { id: true, title: true, grantAmount: true } },
+        submittedDocuments: true,
+      },
     });
 
     // Send in-app notification to the student
     const sponsorOrg = req.user.name;
     const docListStr = requestedDocuments.join(', ');
     await createNotification(
-      studentUser._id,
+      studentUser.id,
       `Document Request from ${sponsorOrg}`,
       `${sponsorOrg} is reviewing students for scholarship opportunities and requested the following documents: ${docListStr}. Note: "${message}"`,
-      application ? application._id : null,
-      docRequest._id
+      application ? application.id : null,
+      docRequest.id
     );
 
     // Log Activity
     await logActivity(
       'Document Request Sent',
       `Sponsor "${sponsorOrg}" requested verification documents (${docListStr}) from student ${studentUser.name}.`,
-      req.user._id,
+      sponsorId,
       'Sponsor',
-      docRequest._id
+      docRequest.id
     );
 
-    const populatedRequest = await DocumentRequest.findById(docRequest._id)
-      .populate('student', 'name email')
-      .populate('sponsor', 'name email')
-      .populate('sponsorship', 'title grantAmount');
-
-    res.status(201).json(populatedRequest);
+    res.status(201).json(formatDocumentRequest(docRequest));
   } catch (error) {
     next(error);
   }
@@ -280,23 +338,30 @@ export const createDocumentRequest = async (req, res, next) => {
 // @access  Private
 export const getMyDocumentRequests = async (req, res, next) => {
   try {
-    let query = {};
+    const userId = req.user.id || req.user._id;
+    let whereClause = {};
+
     if (req.user.role === 'Sponsor') {
-      query.sponsor = req.user._id;
+      whereClause = { sponsorId: userId };
     } else if (req.user.role === 'Student') {
-      query.student = req.user._id;
+      whereClause = { studentId: userId };
     } else if (req.user.role === 'Admin') {
-      query = {};
+      whereClause = {};
     }
 
-    const requests = await DocumentRequest.find(query)
-      .populate('sponsor', 'name email')
-      .populate('student', 'name email')
-      .populate('sponsorship', 'title grantAmount')
-      .populate('application', 'status')
-      .sort({ createdAt: -1 });
+    const requests = await prisma.documentRequest.findMany({
+      where: whereClause,
+      include: {
+        sponsor: { select: { id: true, name: true, email: true } },
+        student: { select: { id: true, name: true, email: true } },
+        sponsorship: { select: { id: true, title: true, grantAmount: true } },
+        application: { select: { id: true, status: true } },
+        submittedDocuments: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-    res.json(requests);
+    res.json(requests.map(formatDocumentRequest));
   } catch (error) {
     next(error);
   }
@@ -308,69 +373,97 @@ export const getMyDocumentRequests = async (req, res, next) => {
 export const submitRequestedDocuments = async (req, res, next) => {
   try {
     const { submittedDocuments, studentNote } = req.body;
+    const studentId = req.user.id || req.user._id;
 
     if (!submittedDocuments || !Array.isArray(submittedDocuments) || submittedDocuments.length === 0) {
       res.status(400);
       throw new Error('Please upload at least one document to submit');
     }
 
-    const docRequest = await DocumentRequest.findById(req.params.id)
-      .populate('sponsor', 'name email')
-      .populate('student', 'name email')
-      .populate('sponsorship', 'title');
+    const docRequest = await prisma.documentRequest.findUnique({
+      where: { id: req.params.id },
+      include: {
+        sponsor: { select: { id: true, name: true, email: true } },
+        student: { select: { id: true, name: true, email: true } },
+        sponsorship: { select: { id: true, title: true } },
+      },
+    });
 
     if (!docRequest) {
       res.status(404);
       throw new Error('Document request not found');
     }
 
-    if (docRequest.student._id.toString() !== req.user._id.toString()) {
+    if (docRequest.studentId !== studentId) {
       res.status(403);
       throw new Error('Not authorized to submit documents for this request');
     }
 
-    docRequest.submittedDocuments = submittedDocuments;
-    docRequest.studentNote = studentNote || '';
-    docRequest.status = 'Submitted';
-    docRequest.submittedAt = new Date();
-    await docRequest.save();
+    // Insert submitted documents
+    await prisma.submittedDocument.createMany({
+      data: submittedDocuments.map((d) => ({
+        documentRequestId: docRequest.id,
+        name: d.name || d.type || 'Document',
+        type: d.type || d.name || 'Credential',
+        cloudinaryUrl: d.cloudinaryUrl,
+        cloudinaryId: d.cloudinaryId || null,
+        fileHash: d.fileHash || null,
+      })),
+    });
+
+    const updated = await prisma.documentRequest.update({
+      where: { id: docRequest.id },
+      data: {
+        studentNote: studentNote || '',
+        status: 'Submitted',
+        submittedAt: new Date(),
+      },
+      include: {
+        sponsor: { select: { id: true, name: true, email: true } },
+        student: { select: { id: true, name: true, email: true } },
+        sponsorship: { select: { id: true, title: true } },
+        submittedDocuments: true,
+      },
+    });
 
     // If linked to an application, update application status & attach documents
-    if (docRequest.application) {
-      const app = await Application.findById(docRequest.application);
-      if (app) {
-        const formattedDocs = submittedDocuments.map((d) => ({
+    if (docRequest.applicationId) {
+      await prisma.applicationDocument.createMany({
+        data: submittedDocuments.map((d) => ({
+          applicationId: docRequest.applicationId,
           type: d.type || d.name || 'Additional Verification Document',
           cloudinaryUrl: d.cloudinaryUrl,
           cloudinaryId: d.cloudinaryId || 'doc_' + Date.now(),
-          fileHash: d.fileHash,
-        }));
-        app.documents.push(...formattedDocs);
-        app.status = 'Under Sponsor review';
-        await app.save();
-      }
+          fileHash: d.fileHash || null,
+        })),
+      });
+
+      await prisma.application.update({
+        where: { id: docRequest.applicationId },
+        data: { status: 'Under Sponsor review' },
+      });
     }
 
     // Notify the sponsor that student uploaded the documents
     const docNames = submittedDocuments.map((d) => d.type || d.name).join(', ');
     await createNotification(
-      docRequest.sponsor._id,
+      docRequest.sponsorId,
       `Documents Submitted by ${req.user.name}`,
       `${req.user.name} has submitted the requested verification documents (${docNames}). Click to review the documents in the Student Directory.`,
-      docRequest.application || null,
-      docRequest._id
+      docRequest.applicationId || null,
+      docRequest.id
     );
 
     // Log Activity
     await logActivity(
       'Documents Provided by Student',
-      `Student ${req.user.name} submitted requested documents (${docNames}) for sponsor ${docRequest.sponsor.name}.`,
-      req.user._id,
+      `Student ${req.user.name} submitted requested documents (${docNames}) for sponsor ${docRequest.sponsor?.name || 'Sponsor'}.`,
+      studentId,
       'Student',
-      docRequest._id
+      docRequest.id
     );
 
-    res.json(docRequest);
+    res.json(formatDocumentRequest(updated));
   } catch (error) {
     next(error);
   }
@@ -381,18 +474,24 @@ export const submitRequestedDocuments = async (req, res, next) => {
 // @access  Private
 export const getDocumentRequestById = async (req, res, next) => {
   try {
-    const docRequest = await DocumentRequest.findById(req.params.id)
-      .populate('sponsor', 'name email')
-      .populate('student', 'name email')
-      .populate('sponsorship', 'title grantAmount duration');
+    const docRequest = await prisma.documentRequest.findUnique({
+      where: { id: req.params.id },
+      include: {
+        sponsor: { select: { id: true, name: true, email: true } },
+        student: { select: { id: true, name: true, email: true } },
+        sponsorship: { select: { id: true, title: true, grantAmount: true, duration: true } },
+        submittedDocuments: true,
+      },
+    });
 
     if (!docRequest) {
       res.status(404);
       throw new Error('Document request not found');
     }
 
-    const isStudent = req.user._id.toString() === docRequest.student._id.toString();
-    const isSponsor = req.user._id.toString() === docRequest.sponsor._id.toString();
+    const currentUserId = req.user.id || req.user._id;
+    const isStudent = currentUserId === docRequest.studentId;
+    const isSponsor = currentUserId === docRequest.sponsorId;
     const isAdmin = req.user.role === 'Admin';
 
     if (!isStudent && !isSponsor && !isAdmin) {
@@ -400,9 +499,8 @@ export const getDocumentRequestById = async (req, res, next) => {
       throw new Error('Not authorized to view this document request');
     }
 
-    res.json(docRequest);
+    res.json(formatDocumentRequest(docRequest));
   } catch (error) {
     next(error);
   }
 };
-

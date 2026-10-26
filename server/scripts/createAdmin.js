@@ -1,34 +1,32 @@
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import User from '../models/User.js';
-import connectDB from '../config/db.js';
-
 dotenv.config();
-
-connectDB();
+import bcrypt from 'bcrypt';
+import prisma from '../config/db.js';
 
 const createAdmin = async () => {
   try {
-    const adminEmail = 'admin@scholar.edu'; // Change as needed
-    
-    const adminExists = await User.findOne({ email: adminEmail });
-    
+    const adminEmail = 'admin@scholar.edu';
+    const adminExists = await prisma.user.findUnique({ where: { email: adminEmail } });
+
     if (adminExists) {
       console.log('Admin user already exists!');
-      process.exit();
+      process.exit(0);
     }
-    
-    const admin = await User.create({
-      name: 'System Admin',
-      email: adminEmail,
-      password: 'AdminPassword123!', // Change as needed
-      role: 'Admin',
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash('AdminPassword123!', salt);
+
+    const admin = await prisma.user.create({
+      data: {
+        name: 'System Admin',
+        email: adminEmail,
+        password: hashedPassword,
+        role: 'Admin',
+      },
     });
-    
-    if (admin) {
-      console.log(`Admin user created successfully! Email: ${admin.email}`);
-      process.exit();
-    }
+
+    console.log(`Admin user created successfully! Email: ${admin.email}`);
+    process.exit(0);
   } catch (error) {
     console.error(`Error: ${error.message}`);
     process.exit(1);
@@ -36,4 +34,3 @@ const createAdmin = async () => {
 };
 
 createAdmin();
-

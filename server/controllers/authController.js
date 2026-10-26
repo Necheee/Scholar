@@ -1,10 +1,23 @@
-import User from '../models/User.js';
-import StudentProfile from '../models/StudentProfile.js';
-import SponsorProfile from '../models/SponsorProfile.js';
-import Sponsorship from '../models/Sponsorship.js';
-import Application from '../models/Application.js';
-import generateToken from '../utils/generateToken.js';
+import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import prisma from '../config/db.js';
+import generateToken from '../utils/generateToken.js';
+
+// Helper to format student profile so frontend receives identical bankDetails object
+export const formatStudentProfile = (p) => {
+  if (!p) return null;
+  return {
+    ...p,
+    _id: p.id,
+    user: p.user ? { ...p.user, _id: p.user.id } : p.userId,
+    bankDetails: {
+      bankName: p.bankName || '',
+      accountNumber: p.accountNumber || '',
+      accountName: p.accountName || '',
+    },
+    academicRecords: (p.academicRecords || []).map((r) => ({ ...r, _id: r.id })),
+  };
+};
 
 // @desc    Auth user & get token
 // @route   POST /api/auth/login
@@ -14,13 +27,14 @@ export const loginUser = async (req, res, next) => {
     const email = req.body.email.toLowerCase();
     const password = req.body.password;
 
-    const user = await User.findOne({ email });
+    const user = await prisma.user.findUnique({ where: { email } });
 
-    if (user && (await user.matchPassword(password))) {
-      generateToken(res, user._id);
-      
+    if (user && (await bcrypt.compare(password, user.password))) {
+      generateToken(res, user.id);
+
       res.json({
-        _id: user._id,
+        _id: user.id,
+        id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
@@ -49,59 +63,70 @@ export const registerUser = async (req, res, next) => {
     }
 
     // Check if user already exists
-    const userExists = await User.findOne({ email });
+    const userExists = await prisma.user.findUnique({ where: { email } });
     if (userExists) {
       res.status(400);
       throw new Error('User already exists');
     }
 
-    // Create user
-    const user = await User.create({
-      name,
-      email,
-      password,
-      role,
-    });
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-    if (user) {
-      // Create associated profile
+    if (role === 'Student') {
+      if (!profileData.institution || !profileData.department) {
+        res.status(400);
+        throw new Error('Institution and department are required for students');
+      }
+    } else if (role === 'Sponsor') {
+      if (!profileData.organizationName) {
+        res.status(400);
+        throw new Error('Organization name is required for sponsors');
+      }
+    }
+
+    // Create user and profile in a transaction
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+          role,
+        },
+      });
+
       if (role === 'Student') {
-        if (!profileData.institution || !profileData.department) {
-          await User.findByIdAndDelete(user._id); // Rollback
-          res.status(400);
-          throw new Error('Institution and department are required for students');
-        }
-        await StudentProfile.create({
-          user: user._id,
-          institution: profileData.institution,
-          department: profileData.department,
+        await tx.studentProfile.create({
+          data: {
+            userId: newUser.id,
+            institution: profileData.institution,
+            department: profileData.department,
+          },
         });
       } else if (role === 'Sponsor') {
-        if (!profileData.organizationName) {
-          await User.findByIdAndDelete(user._id); // Rollback
-          res.status(400);
-          throw new Error('Organization name is required for sponsors');
-        }
-        await SponsorProfile.create({
-          user: user._id,
-          organizationName: profileData.organizationName,
-          description: profileData.description,
-          website: profileData.website,
+        await tx.sponsorProfile.create({
+          data: {
+            userId: newUser.id,
+            organizationName: profileData.organizationName,
+            description: profileData.description || null,
+            website: profileData.website || null,
+          },
         });
       }
 
-      generateToken(res, user._id);
-      
-      res.status(201).json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      });
-    } else {
-      res.status(400);
-      throw new Error('Invalid user data');
-    }
+      return newUser;
+    });
+
+    generateToken(res, user.id);
+
+    res.status(201).json({
+      _id: user.id,
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    });
   } catch (error) {
     next(error);
   }
@@ -125,7 +150,7 @@ export const forgotPassword = async (req, res, next) => {
   try {
     let email = req.body.email;
     if (email) email = email.toLowerCase();
-    const user = await User.findOne({ email });
+    const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
       res.status(404);
@@ -134,26 +159,29 @@ export const forgotPassword = async (req, res, next) => {
 
     // Get reset token
     const resetToken = crypto.randomBytes(20).toString('hex');
-    
+
     // Hash token and set to resetPasswordToken field
-    user.resetPasswordToken = crypto
+    const resetPasswordToken = crypto
       .createHash('sha256')
       .update(resetToken)
       .digest('hex');
 
     // Set expire (10 minutes)
-    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
-    await user.save();
+    const resetPasswordExpire = new Date(Date.now() + 10 * 60 * 1000);
 
-    // Since we don't have an email server setup (like SendGrid/Nodemailer) for this project,
-    // we will simulate email sending by logging it to the console and returning it in dev.
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetPasswordToken,
+        resetPasswordExpire,
+      },
+    });
+
     console.log(`[EMAIL SIMULATOR] Password reset link for ${user.email}: http://localhost:3000/reset-password?token=${resetToken}`);
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: 'Email sent',
-      // In production, DO NOT return the resetToken in the response! 
-      // We only return it here because there is no real email service configured.
-      _dev_token: resetToken 
+      _dev_token: resetToken,
     });
   } catch (error) {
     next(error);
@@ -165,15 +193,16 @@ export const forgotPassword = async (req, res, next) => {
 // @access  Public
 export const resetPassword = async (req, res, next) => {
   try {
-    // Get hashed token
     const resetPasswordToken = crypto
       .createHash('sha256')
       .update(req.params.resetToken)
       .digest('hex');
 
-    const user = await User.findOne({
-      resetPasswordToken,
-      resetPasswordExpire: { $gt: Date.now() }
+    const user = await prisma.user.findFirst({
+      where: {
+        resetPasswordToken,
+        resetPasswordExpire: { gt: new Date() },
+      },
     });
 
     if (!user) {
@@ -181,38 +210,53 @@ export const resetPassword = async (req, res, next) => {
       throw new Error('Invalid or expired token');
     }
 
-    // Set new password
-    user.password = req.body.password;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpire = undefined;
-    await user.save();
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(req.body.password, salt);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpire: null,
+      },
+    });
 
     res.status(200).json({ message: 'Password reset successful. Please log in.' });
   } catch (error) {
     next(error);
   }
 };
+
 // @desc    Change user password
 // @route   PUT /api/auth/change-password
 // @access  Private
 export const changePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    
+
     if (!currentPassword || !newPassword) {
       res.status(400);
       throw new Error('Please provide current and new passwords');
     }
 
-    const user = await User.findById(req.user._id).select('+password');
+    const userId = req.user.id || req.user._id;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
 
-    if (!(await user.matchPassword(currentPassword))) {
+    if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
       res.status(401);
       throw new Error('Invalid current password');
     }
 
-    user.password = newPassword;
-    await user.save();
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword },
+    });
 
     res.json({ message: 'Password updated successfully' });
   } catch (error) {
@@ -232,49 +276,54 @@ export const deleteAccount = async (req, res, next) => {
       throw new Error('Please provide password to confirm account deletion');
     }
 
-    const user = await User.findById(req.user._id).select('+password');
+    const userId = req.user.id || req.user._id;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
 
     if (!user) {
       res.status(404);
       throw new Error('User not found');
     }
 
-    if (!(await user.matchPassword(password))) {
+    if (!(await bcrypt.compare(password, user.password))) {
       res.status(401);
       throw new Error('Invalid password. Account deletion aborted.');
     }
 
-    // Role-specific cascading cleanup
+    // Role-specific cascading updates
     if (user.role === 'Sponsor') {
-      // 1. Remove Sponsor Profile
-      await SponsorProfile.findOneAndDelete({ user: req.user._id });
-
-      // 2. Close all active sponsorships created by this sponsor
-      await Sponsorship.updateMany(
-        { sponsor: req.user._id },
-        { status: 'Closed' }
-      );
+      await prisma.sponsorship.updateMany({
+        where: { sponsorId: user.id },
+        data: { status: 'Closed' },
+      });
     } else if (user.role === 'Student') {
-      // 1. Remove Student Profile
-      await StudentProfile.findOneAndDelete({ user: req.user._id });
-
-      // 2. Mark any non-awarded applications as Withdrawn
-      await Application.updateMany(
-        { 
-          student: req.user._id, 
-          status: { $in: ['Under screening', 'Under Admin review', 'Waiting for additional information', 'Under Sponsor review'] } 
+      await prisma.application.updateMany({
+        where: {
+          studentId: user.id,
+          status: {
+            in: [
+              'Under screening',
+              'Under Admin review',
+              'Waiting for additional information',
+              'Under Sponsor review',
+            ],
+          },
         },
-        { status: 'Withdrawn' }
-      );
+        data: { status: 'Withdrawn' },
+      });
     }
 
-    // Delete User record
-    await User.findByIdAndDelete(req.user._id);
-    
-    // Clear the authentication cookie
+    // Delete user (cascade automatically deletes profile, records, etc.)
+    await prisma.user.delete({ where: { id: user.id } });
+
+    res.cookie('jwt', '', {
+      httpOnly: true,
+      expires: new Date(0),
+    });
     res.cookie('token', '', {
       httpOnly: true,
-      expires: new Date(0)
+      expires: new Date(0),
     });
 
     res.json({ message: 'Account deleted successfully' });
@@ -288,16 +337,30 @@ export const deleteAccount = async (req, res, next) => {
 // @access  Private (Student)
 export const getStudentProfile = async (req, res, next) => {
   try {
-    let profile = await StudentProfile.findOne({ user: req.user._id }).populate('user', 'name email');
+    const userId = req.user.id || req.user._id;
+    let profile = await prisma.studentProfile.findUnique({
+      where: { userId },
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        academicRecords: true,
+      },
+    });
+
     if (!profile) {
-      profile = await StudentProfile.create({
-        user: req.user._id,
-        institution: 'University of Nigeria, Nsukka',
-        department: 'Computer Science',
+      profile = await prisma.studentProfile.create({
+        data: {
+          userId,
+          institution: 'University of Nigeria, Nsukka',
+          department: 'Computer Science',
+        },
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+          academicRecords: true,
+        },
       });
-      profile = await profile.populate('user', 'name email');
     }
-    res.json(profile);
+
+    res.json(formatStudentProfile(profile));
   } catch (error) {
     next(error);
   }
@@ -308,27 +371,35 @@ export const getStudentProfile = async (req, res, next) => {
 // @access  Private (Student)
 export const updateStudentProfile = async (req, res, next) => {
   try {
+    const userId = req.user.id || req.user._id;
     const { institution, department, seekingSponsorship, bankDetails } = req.body;
-    let profile = await StudentProfile.findOne({ user: req.user._id });
 
-    if (!profile) {
-      profile = new StudentProfile({ user: req.user._id });
-    }
-
-    if (institution !== undefined) profile.institution = institution;
-    if (department !== undefined) profile.department = department;
-    if (seekingSponsorship !== undefined) profile.seekingSponsorship = seekingSponsorship;
+    const dataToUpdate = {};
+    if (institution !== undefined) dataToUpdate.institution = institution;
+    if (department !== undefined) dataToUpdate.department = department;
+    if (seekingSponsorship !== undefined) dataToUpdate.seekingSponsorship = Boolean(seekingSponsorship);
     if (bankDetails) {
-      profile.bankDetails = {
-        bankName: bankDetails.bankName || '',
-        accountNumber: bankDetails.accountNumber || '',
-        accountName: bankDetails.accountName || '',
-      };
+      if (bankDetails.bankName !== undefined) dataToUpdate.bankName = bankDetails.bankName;
+      if (bankDetails.accountNumber !== undefined) dataToUpdate.accountNumber = bankDetails.accountNumber;
+      if (bankDetails.accountName !== undefined) dataToUpdate.accountName = bankDetails.accountName;
     }
 
-    await profile.save();
-    const updated = await StudentProfile.findOne({ user: req.user._id }).populate('user', 'name email');
-    res.json(updated);
+    const updated = await prisma.studentProfile.upsert({
+      where: { userId },
+      create: {
+        userId,
+        institution: institution || 'University of Nigeria, Nsukka',
+        department: department || 'Computer Science',
+        ...dataToUpdate,
+      },
+      update: dataToUpdate,
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        academicRecords: true,
+      },
+    });
+
+    res.json(formatStudentProfile(updated));
   } catch (error) {
     next(error);
   }

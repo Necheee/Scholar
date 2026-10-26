@@ -56,7 +56,7 @@ export const parseDurationToDays = (durationStr) => {
 
 /**
  * Calculates whether an awarded/disbursed application is currently actively funded based on duration.
- * @param {Object} application Mongoose application document (with populated sponsorship)
+ * @param {Object} application Application record (with populated sponsorship)
  * @returns {Object} { isFundedActive: boolean, startDate: Date, endDate: Date, daysRemaining: number }
  */
 export const getFundingStatus = (application) => {

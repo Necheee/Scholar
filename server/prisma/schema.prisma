@@ -1,0 +1,220 @@
+datasource db {
+  provider = "mysql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                  String           @id @default(uuid())
+  name                String
+  email               String           @unique
+  password            String
+  role                String           // 'Student', 'Sponsor', 'Admin'
+  resetPasswordToken  String?
+  resetPasswordExpire DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  studentProfile      StudentProfile?
+  sponsorProfile      SponsorProfile?
+  sponsorships        Sponsorship[]
+  applications        Application[]
+  sponsorPayments     Payment[]        @relation("SponsorPayments")
+  studentPayments     Payment[]        @relation("StudentPayments")
+  sponsorDocRequests  DocumentRequest[] @relation("SponsorDocumentRequests")
+  studentDocRequests  DocumentRequest[] @relation("StudentDocumentRequests")
+  notifications       Notification[]
+  activityLogs        ActivityLog[]
+}
+
+model StudentProfile {
+  id                 String           @id @default(uuid())
+  userId             String           @unique
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution        String
+  department         String
+  seekingSponsorship Boolean          @default(false)
+  bankName           String           @default("")
+  accountNumber      String           @default("")
+  accountName        String           @default("")
+  academicRecords    AcademicRecord[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+}
+
+model AcademicRecord {
+  id               String         @id @default(uuid())
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  session          String         // e.g., '2025/2026'
+  programme        String
+  level            String
+  info             String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+model SponsorProfile {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationName String
+  description      String?  @db.Text
+  website          String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Sponsorship {
+  id                      String            @id @default(uuid())
+  sponsorId               String
+  sponsor                 User              @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+  title                   String
+  description             String            @db.Text
+  eligibilityRequirements String            @db.Text
+  academicRequirements    String            @db.Text
+  requiredDocuments       String            @db.Text // Stored as JSON string
+  applicationDeadline     DateTime
+  duration                String
+  grantAmount             Float             @default(250000)
+  isLocked                Boolean           @default(false)
+  status                  String            @default("Active") // 'Active', 'Closed'
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+
+  applications            Application[]
+  payments                Payment[]
+  documentRequests        DocumentRequest[]
+}
+
+model Application {
+  id                  String                @id @default(uuid())
+  studentId           String
+  student             User                  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  sponsorshipId       String
+  sponsorship         Sponsorship           @relation(fields: [sponsorshipId], references: [id], onDelete: Cascade)
+  status              String                @default("Draft")
+  academicSession     String?
+  academicLevel       String?
+  academicProgramme   String?
+  reasonForRequesting String?               @db.Text
+  fraudReviewStatus   String                @default("Pending") // 'Pending', 'Passed', 'Flagged'
+  rejectionReason     String?               @db.Text
+  disbursedAt         DateTime?
+  fundingEndDate      DateTime?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  documents           ApplicationDocument[]
+  fraudResult         FraudResult?
+  payments            Payment[]
+  documentRequests    DocumentRequest[]
+  notifications       Notification[]
+}
+
+model ApplicationDocument {
+  id            String      @id @default(uuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  type          String
+  cloudinaryUrl String      @db.Text
+  cloudinaryId  String
+  fileHash      String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model FraudResult {
+  id              String      @id @default(uuid())
+  applicationId   String      @unique
+  application     Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  overallRisk     String      // 'Low', 'Medium', 'High'
+  rulesTriggered  String      @db.Text // Stored as JSON string array
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model Payment {
+  id                    String      @id @default(uuid())
+  reference             String      @unique
+  amount                Float
+  currency              String      @default("NGN")
+  status                String      @default("Pending") // 'Pending', 'Success', 'Failed'
+  paystackTransactionId String?
+  channel               String      @default("card")
+  sponsorId             String
+  sponsor               User        @relation("SponsorPayments", fields: [sponsorId], references: [id], onDelete: Cascade)
+  studentId             String
+  student               User        @relation("StudentPayments", fields: [studentId], references: [id], onDelete: Cascade)
+  sponsorshipId         String
+  sponsorship           Sponsorship @relation(fields: [sponsorshipId], references: [id], onDelete: Cascade)
+  applicationId         String
+  application           Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  paidAt                DateTime?
+  metadata              String?     @db.Text // Stored as JSON string
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+}
+
+model DocumentRequest {
+  id                 String              @id @default(uuid())
+  sponsorId          String
+  sponsor            User                @relation("SponsorDocumentRequests", fields: [sponsorId], references: [id], onDelete: Cascade)
+  studentId          String
+  student            User                @relation("StudentDocumentRequests", fields: [studentId], references: [id], onDelete: Cascade)
+  sponsorshipId      String?
+  sponsorship        Sponsorship?        @relation(fields: [sponsorshipId], references: [id], onDelete: SetNull)
+  applicationId      String?
+  application        Application?        @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  requestedDocuments String              @db.Text // Stored as JSON string array
+  message            String              @db.Text
+  status             String              @default("Pending") // 'Pending', 'Submitted', 'Fulfilled', 'Closed'
+  studentNote        String?             @db.Text
+  submittedAt        DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  submittedDocuments SubmittedDocument[]
+  notifications      Notification[]
+}
+
+model SubmittedDocument {
+  id                String          @id @default(uuid())
+  documentRequestId String
+  documentRequest   DocumentRequest @relation(fields: [documentRequestId], references: [id], onDelete: Cascade)
+  name              String
+  type              String
+  cloudinaryUrl     String          @db.Text
+  cloudinaryId      String?
+  fileHash          String?
+  uploadedAt        DateTime        @default(now())
+}
+
+model Notification {
+  id                      String           @id @default(uuid())
+  userId                  String
+  user                    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title                   String
+  message                 String           @db.Text
+  isRead                  Boolean          @default(false)
+  relatedApplicationId    String?
+  relatedApplication      Application?     @relation(fields: [relatedApplicationId], references: [id], onDelete: SetNull)
+  relatedDocRequestId     String?
+  relatedDocumentRequest  DocumentRequest? @relation(fields: [relatedDocRequestId], references: [id], onDelete: SetNull)
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  action      String
+  description String   @db.Text
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  role        String?  // 'Student', 'Sponsor', 'Admin'
+  relatedId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
