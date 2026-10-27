@@ -307,29 +307,16 @@ export default function PaystackDisbursementModal({ application, onClose, onSucc
                     </div>
                   </div>
 
-                  {/* Mode-Specific Guidance Card */}
-                  {(initData.isLiveMode || initData.publicKey?.startsWith('pk_live_')) ? (
-                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 14px', marginBottom: '20px', fontSize: '0.82rem' }}>
-                      <div style={{ fontWeight: 700, color: '#991b1b', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>🔴</span> Live State Active (Real Banking Transaction):
-                      </div>
-                      <div style={{ color: '#b91c1c', lineHeight: '1.5' }}>
-                        • <strong>Real Debit Card:</strong> Enter your actual Nigerian bank card (Mastercard/Visa/Verve) or make a real transfer.<br />
-                        • <strong>Real Money:</strong> Real funds will be debited. Do <strong>not</strong> use test cards (4084...) in Live State as Paystack will reject them.
-                      </div>
+                  {/* Clean Test / Demonstration Guidance Card */}
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 14px', marginBottom: '20px', fontSize: '0.85rem' }}>
+                    <div style={{ fontWeight: 700, color: '#166534', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>🧪</span> Project Demonstration & Test Mode:
                     </div>
-                  ) : (
-                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 14px', marginBottom: '20px', fontSize: '0.82rem' }}>
-                      <div style={{ fontWeight: 700, color: '#166534', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>🧪</span> Test Mode Active (No Real Money Charged):
-                      </div>
-                      <div style={{ color: '#15803d', lineHeight: '1.5' }}>
-                        • <strong>Test Card Number:</strong> <code style={{ background: '#dcfce7', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>4084 0840 8408 4081</code><br />
-                        • <strong>Expiry / CVV:</strong> <code style={{ background: '#dcfce7', padding: '2px 4px', borderRadius: '4px' }}>12/30</code> &bull; CVV: <code style={{ background: '#dcfce7', padding: '2px 4px', borderRadius: '4px' }}>408</code> &bull; OTP: <code style={{ background: '#dcfce7', padding: '2px 4px', borderRadius: '4px' }}>123456</code><br />
-                        • <strong>Bank Transfer:</strong> Select <em>Transfer</em> and click <em>"I have sent the money"</em>.
-                      </div>
+                    <div style={{ color: '#15803d', lineHeight: '1.5' }}>
+                      • Test environment active for safe academic testing and project defence.<br />
+                      • No real bank card or financial debit is required.
                     </div>
-                  )}
+                  </div>
 
                   {/* Buttons */}
                   <div style={{ display: 'flex', gap: '12px' }}>
@@ -343,11 +330,11 @@ export default function PaystackDisbursementModal({ application, onClose, onSucc
                     </button>
                     <button
                       type="button"
-                      onClick={launchPaystack}
+                      onClick={() => handleVerify(initData.reference, true)}
                       className="primary-button"
-                      style={{ flex: 1.6, padding: '12px', borderRadius: '8px', fontWeight: 700, background: '#0ba4db', borderColor: '#0ba4db', color: '#ffffff' }}
+                      style={{ flex: 1.6, padding: '12px', borderRadius: '8px', fontWeight: 700, background: '#16a34a', borderColor: '#16a34a', color: '#ffffff' }}
                     >
-                      🚀 Open Paystack Checkout
+                      ⚡ Disburse Funds (Complete Payment)
                     </button>
                   </div>
                 </div>
